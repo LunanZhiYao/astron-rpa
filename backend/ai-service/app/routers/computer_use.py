@@ -81,9 +81,12 @@ async def cua_chat(request: Request):
     llm_params = ChatCompletionParam(
         model="QianYi10",
         stream=False,
-        temperature=0,
-        max_tokens=8192,
+        temperature=0.2,
+        max_tokens=128000,
         messages=messages,
+        extra_body={
+            "chat_template_kwargs": {"enable_thinking": False},
+        }, 
     )
 
     chat_result = await chat_completions(llm_params, CUA_KEY, CUA_ENDPOINT)

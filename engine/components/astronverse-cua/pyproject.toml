@@ -10,6 +10,7 @@ dependencies = [
     "pillow",
     "openai",
     "pyperclip",
+    "websocket-client",
     "astronverse-actionlib"
 ]
 

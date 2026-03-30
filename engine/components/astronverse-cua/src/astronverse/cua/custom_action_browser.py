@@ -1,17 +1,20 @@
 """
 Browser Use Agent - 使用视觉大模型操作浏览器
 实现完整的自动化流程：用户指令 → 浏览器快照 → 模型分析 → 执行操作 → 循环直到任务完成
-使用托管浏览器（Managed Browser）指定 profile 的方式
+支持两种模式：
+1. CDP 模式：通过 Chrome DevTools Protocol 直接与浏览器通信，无需插件
+2. 插件模式：通过浏览器插件通信（需要安装插件）
 """
 
 import base64
 import json
 import os
+import subprocess
 import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 
 import requests
 from astronverse.actionlib.atomic import atomicMg
@@ -19,6 +22,7 @@ from astronverse.baseline.logger.logger import logger
 from astronverse.browser import CommonForBrowserType
 from astronverse.browser.browser_software import BrowserSoftware
 from astronverse.browser.browser import Browser
+from astronverse.cua.cdp_browser import CDPBrowserClient
 
 # 浏览器 Web 任务场景的提示词模板（使用快照代替截图）
 BROWSER_USE_PROMPT = """You are a Web Browser agent. You are given a task and your action history, with webpage snapshot (DOM structure and element positions). You need to perform the next action to complete the task.
@@ -168,6 +172,8 @@ class CustomActionBrowser:
         max_steps: int = 20,
         temperature: float = 0.0,
         profile_name: str = "default",
+        mode: Literal["cdp", "plugin"] = "cdp",
+        cdp_port: int = 9222,
     ):
         """
         初始化Agent
@@ -176,60 +182,104 @@ class CustomActionBrowser:
             max_steps: 最大执行步数
             temperature: 模型温度参数
             profile_name: 浏览器Profile名称
+            mode: 浏览器交互模式，"cdp" 使用 Chrome DevTools Protocol，"plugin" 使用浏览器插件
+            cdp_port: CDP 调试端口，默认 9222
         """
 
         self.max_steps = max_steps
         self.temperature = temperature
         self.profile_name = profile_name
+        self.mode = mode
+        self.cdp_port = cdp_port
 
-        # 设置日志目录
         self.log_dir = Path(tempfile.mkdtemp(prefix="browser_agent_"))
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
-        # 历史记录
         self.snapshots: list[dict] = []
-        # 保存对话历史：(assistant响应, snapshot) 或 None)
         self.conversation_history: list[tuple[str, Optional[dict]]] = []
         self.pending_response: Optional[str] = None
         self.instruction: Optional[str] = None
 
-        # 浏览器对象
         self.browser_obj: Optional[Browser] = None
+        self.cdp_client: Optional[CDPBrowserClient] = None
 
-        # 页面尺寸缓存
         self.page_width = None
         self.page_height = None
         self.max_history_rounds = 3
 
         logger.info(f"[初始化] 日志保存目录: {self.log_dir}")
+        logger.info(f"[初始化] 浏览器模式: {self.mode}")
 
     def init_browser(self) -> Browser:
         """
-        初始化托管浏览器（Managed Browser）
-        使用指定的profile启动浏览器
+        初始化浏览器
+        CDP 模式：连接到已启动的 Chrome 调试端口
+        插件模式：使用指定的 profile 启动浏览器
         """
-        print("[浏览器] 初始化浏览器")
+        print(f"[浏览器] 初始化浏览器 (模式: {self.mode})")
         try:
-            # 获取已打开的浏览器对象，如果没有则打开新浏览器
-            try:
-                browser_obj = BrowserSoftware.get_current_obj(
-                    browser_type=CommonForBrowserType.BTChrome
-                )
-                logger.info("[浏览器] 获取到已打开的浏览器对象")
-            except Exception:
-                # 如果没有打开的浏览器，则打开新浏览器
-                browser_obj = BrowserSoftware.browser_open(
-                    url="about:blank",
-                    browser_type=CommonForBrowserType.BTChrome,
-                    wait_load_success=False,
-                )
-                logger.info("[浏览器] 打开新浏览器")
-
-            self.browser_obj = browser_obj
-            return browser_obj
+            if self.mode == "cdp":
+                return self._init_browser_cdp()
+            else:
+                return self._init_browser_plugin()
         except Exception as e:
             logger.error(f"[错误] 初始化浏览器失败: {e}")
             raise
+
+    def _init_browser_cdp(self, auto_start: bool = True) -> Browser:
+        """
+        CDP 模式初始化浏览器
+
+        Args:
+            auto_start: 如果没有找到浏览器，是否自动启动
+        """
+        self.cdp_client = CDPBrowserClient(port=self.cdp_port)
+
+        pages = self.cdp_client.get_available_pages()
+        if pages:
+            if self.cdp_client.connect():
+                logger.info(f"[CDP] 已连接到浏览器，当前页面: {pages[0].get('url', 'unknown')}")
+                return None
+            else:
+                raise Exception("CDP 连接失败")
+        elif auto_start:
+            logger.info("[CDP] 未找到浏览器，尝试自动启动...")
+            if self.cdp_client.start_browser():
+                if self.cdp_client.connect():
+                    logger.info("[CDP] 已自动启动并连接到浏览器")
+                    return None
+                else:
+                    raise Exception("CDP 连接失败")
+            else:
+                raise Exception(
+                    f"自动启动浏览器失败。请手动启动 Chrome:\n"
+                    f'  Chrome: chrome.exe --remote-debugging-port={self.cdp_port}\n'
+                    f'  Edge: msedge.exe --remote-debugging-port={self.cdp_port}'
+                )
+        else:
+            raise Exception(
+                f"未找到可用的浏览器页面。请使用以下命令启动 Chrome:\n"
+                f'  Chrome: chrome.exe --remote-debugging-port={self.cdp_port}\n'
+                f'  Edge: msedge.exe --remote-debugging-port={self.cdp_port}'
+            )
+
+    def _init_browser_plugin(self) -> Browser:
+        """插件模式初始化浏览器"""
+        try:
+            browser_obj = BrowserSoftware.get_current_obj(
+                browser_type=CommonForBrowserType.BTChrome
+            )
+            logger.info("[浏览器] 获取到已打开的浏览器对象")
+        except Exception:
+            browser_obj = BrowserSoftware.browser_open(
+                url="about:blank",
+                browser_type=CommonForBrowserType.BTChrome,
+                wait_load_success=False,
+            )
+            logger.info("[浏览器] 打开新浏览器")
+
+        self.browser_obj = browser_obj
+        return browser_obj
 
     def get_page_snapshot(self) -> dict:
         """
@@ -238,73 +288,148 @@ class CustomActionBrowser:
         Returns:
             页面快照字典，包含URL、标题、可交互元素列表等
         """
+        if self.mode == "cdp":
+            return self._get_page_snapshot_cdp()
+        else:
+            return self._get_page_snapshot_plugin()
+
+    def _ensure_browser_connected(self):
+        """确保浏览器已连接，如果断开则尝试重新连接或启动"""
+        if not self.cdp_client:
+            raise Exception("CDP 客户端未初始化")
+
+        # 检查连接是否有效
+        try:
+            pages = self.cdp_client.get_available_pages()
+            if pages and self.cdp_client.ws:
+                # 尝试发送一个简单的命令检查连接
+                self.cdp_client.send_command("Runtime.evaluate", {"expression": "1"}, timeout=2.0)
+                return
+        except Exception:
+            logger.warning("[CDP] 浏览器连接已断开，尝试重新连接...")
+
+        # 尝试重新连接
+        pages = self.cdp_client.get_available_pages()
+        if pages:
+            try:
+                self.cdp_client.connect()
+                logger.info("[CDP] 已重新连接到浏览器")
+                return
+            except Exception as e:
+                logger.warning(f"[CDP] 重新连接失败: {e}")
+
+        # 尝试启动新浏览器
+        logger.info("[CDP] 未找到可用的浏览器，尝试自动启动...")
+        if self.cdp_client.start_browser():
+            if self.cdp_client.connect():
+                logger.info("[CDP] 已自动启动并连接到浏览器")
+                return
+            else:
+                raise Exception("CDP 连接失败")
+        else:
+            raise Exception(
+                f"自动启动浏览器失败。请手动启动 Chrome:\n"
+                f'  Chrome: chrome.exe --remote-debugging-port={self.cdp_port}\n'
+                f'  Edge: msedge.exe --remote-debugging-port={self.cdp_port}'
+            )
+
+    def _get_page_snapshot_cdp(self) -> dict:
+        """CDP 模式获取页面快照"""
+        if not self.cdp_client:
+            raise Exception("CDP 客户端未初始化")
+
+        try:
+            # 确保浏览器已连接
+            self._ensure_browser_connected()
+
+            result = self.cdp_client.get_page_snapshot()
+            if isinstance(result, dict):
+                self.page_width = result.get('viewport', {}).get('width', 1920)
+                self.page_height = result.get('viewport', {}).get('height', 1080)
+                return result
+            else:
+                return {
+                    "url": "",
+                    "title": "",
+                    "viewport": {"width": 1920, "height": 1080},
+                    "elements": [],
+                    "error": "无法获取页面快照"
+                }
+        except Exception as e:
+            logger.error(f"[错误] 获取页面快照失败: {e}")
+            return {
+                "url": "",
+                "title": "",
+                "viewport": {"width": 1920, "height": 1080},
+                "elements": [],
+                "error": str(e)
+            }
+
+    def _get_page_snapshot_plugin(self) -> dict:
+        """插件模式获取页面快照"""
         if not self.browser_obj:
             raise Exception("浏览器对象未初始化")
 
-        try:
-            # 使用JavaScript获取页面快照
-            snapshot_script = """
-            (function() {
-                function getElementSnapshot(element, index) {
-                    const rect = element.getBoundingClientRect();
-                    const computedStyle = window.getComputedStyle(element);
-                    
-                    // 只获取可见且可交互的元素
-                    if (rect.width === 0 || rect.height === 0 || 
-                        computedStyle.display === 'none' || 
-                        computedStyle.visibility === 'hidden') {
-                        return null;
-                    }
-                    
-                    const snapshot = {
-                        elementId: 'ele-' + index,
-                        tagName: element.tagName.toLowerCase(),
-                        text: element.textContent ? element.textContent.trim().substring(0, 100) : '',
-                        bounds: {
-                            x: Math.round(rect.left),
-                            y: Math.round(rect.top),
-                            width: Math.round(rect.width),
-                            height: Math.round(rect.height)
-                        },
-                        attributes: {}
-                    };
-                    
-                    // 获取关键属性
-                    const attrs = ['id', 'name', 'type', 'placeholder', 'value', 'href', 'src', 'alt', 'title', 'class'];
-                    attrs.forEach(attr => {
-                        if (element.hasAttribute(attr)) {
-                            snapshot.attributes[attr] = element.getAttribute(attr);
-                        }
-                    });
-                    
-                    return snapshot;
+        snapshot_script = """
+        (function() {
+            function getElementSnapshot(element, index) {
+                const rect = element.getBoundingClientRect();
+                const computedStyle = window.getComputedStyle(element);
+                
+                if (rect.width === 0 || rect.height === 0 || 
+                    computedStyle.display === 'none' || 
+                    computedStyle.visibility === 'hidden') {
+                    return null;
                 }
                 
-                // 获取所有可交互元素
-                const interactiveSelectors = 'a, button, input, textarea, select, [onclick], [role="button"], [role="link"], [role="textbox"]';
-                const elements = document.querySelectorAll(interactiveSelectors);
-                const elementList = [];
+                const snapshot = {
+                    elementId: 'ele-' + index,
+                    tagName: element.tagName.toLowerCase(),
+                    text: element.textContent ? element.textContent.trim().substring(0, 100) : '',
+                    bounds: {
+                        x: Math.round(rect.left),
+                        y: Math.round(rect.top),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height)
+                    },
+                    attributes: {}
+                };
                 
-                elements.forEach((el, idx) => {
-                    const snapshot = getElementSnapshot(el, idx);
-                    if (snapshot) {
-                        elementList.push(snapshot);
+                const attrs = ['id', 'name', 'type', 'placeholder', 'value', 'href', 'src', 'alt', 'title', 'class'];
+                attrs.forEach(attr => {
+                    if (element.hasAttribute(attr)) {
+                        snapshot.attributes[attr] = element.getAttribute(attr);
                     }
                 });
                 
-                return {
-                    url: window.location.href,
-                    title: document.title,
-                    viewport: {
-                        width: window.innerWidth,
-                        height: window.innerHeight
-                    },
-                    elements: elementList,
-                    timestamp: new Date().toISOString()
-                };
-            })();
-            """
+                return snapshot;
+            }
+            
+            const interactiveSelectors = 'a, button, input, textarea, select, [onclick], [role="button"], [role="link"], [role="textbox"]';
+            const elements = document.querySelectorAll(interactiveSelectors);
+            const elementList = [];
+            
+            elements.forEach((el, idx) => {
+                const snapshot = getElementSnapshot(el, idx);
+                if (snapshot) {
+                    elementList.push(snapshot);
+                }
+            });
+            
+            return {
+                url: window.location.href,
+                title: document.title,
+                viewport: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                },
+                elements: elementList,
+                timestamp: new Date().toISOString()
+            };
+        })();
+        """
 
+        try:
             result = self.browser_obj.send_browser_extension(
                 browser_type=self.browser_obj.browser_type.value,
                 key="executeScript",
@@ -317,7 +442,6 @@ class CustomActionBrowser:
                 self.page_height = result.get('viewport', {}).get('height', 1080)
                 return result
             else:
-                # 如果无法获取快照，返回基本信息
                 return {
                     "url": "",
                     "title": "",
@@ -486,20 +610,36 @@ class CustomActionBrowser:
                 elif action_type == "open_url":
                     url = param.get("url", "")
                     if url:
-                        BrowserSoftware.web_open(
-                            browser_obj=self.browser_obj,
-                            new_tab_url=url,
-                            wait_page=True,
-                        )
+                        if self.mode == "cdp" and self.cdp_client:
+                            self._ensure_browser_connected()
+                            self.cdp_client.navigate(url)
+                        else:
+                            BrowserSoftware.web_open(
+                                browser_obj=self.browser_obj,
+                                new_tab_url=url,
+                                wait_page=True,
+                            )
 
                 elif action_type == "back":
-                    BrowserSoftware.browser_back(browser_obj=self.browser_obj)
+                    if self.mode == "cdp" and self.cdp_client:
+                        self._ensure_browser_connected()
+                        self.cdp_client.go_back()
+                    else:
+                        BrowserSoftware.browser_back(browser_obj=self.browser_obj)
 
                 elif action_type == "forward":
-                    BrowserSoftware.browser_forward(browser_obj=self.browser_obj)
+                    if self.mode == "cdp" and self.cdp_client:
+                        self._ensure_browser_connected()
+                        self.cdp_client.go_forward()
+                    else:
+                        BrowserSoftware.browser_forward(browser_obj=self.browser_obj)
 
                 elif action_type == "refresh":
-                    BrowserSoftware.web_refresh(browser_obj=self.browser_obj)
+                    if self.mode == "cdp" and self.cdp_client:
+                        self._ensure_browser_connected()
+                        self.cdp_client.refresh()
+                    else:
+                        BrowserSoftware.web_refresh(browser_obj=self.browser_obj)
 
                 elif action_type == "data":
                     data = param.get("data", None)
@@ -532,204 +672,227 @@ class CustomActionBrowser:
     def _execute_click_by_element_id(self, element_id: str, button: str = "left", clicks: int = 1):
         """通过元素ID执行点击"""
         try:
-            js_code = f"""
-            (function() {{
-                const element = document.querySelector('[data-agent-id="{element_id}"]') || 
-                               document.querySelectorAll('a, button, input, [onclick], [role="button"]')[parseInt('{element_id}'.replace('ele-', ''))];
-                if (element) {{
-                    const rect = element.getBoundingClientRect();
-                    const centerX = rect.left + rect.width / 2;
-                    const centerY = rect.top + rect.height / 2;
-                    
-                    const event = new MouseEvent('click', {{
-                        bubbles: true,
-                        cancelable: true,
-                        view: window,
-                        button: {'2' if button == 'right' else '0'},
-                        detail: {clicks},
-                        clientX: centerX,
-                        clientY: centerY
-                    }});
-                    element.dispatchEvent(event);
-                    return 'clicked at ' + centerX + ',' + centerY;
-                }}
-                return 'element not found';
-            }})();
-            """
-            self.browser_obj.send_browser_extension(
-                browser_type=self.browser_obj.browser_type.value,
-                key="executeScript",
-                data={"script": js_code},
-            )
+            if self.mode == "cdp" and self.cdp_client:
+                self._ensure_browser_connected()
+                self.cdp_client.click_element(element_id, button, clicks)
+            else:
+                js_code = f"""
+                (function() {{
+                    const element = document.querySelector('[data-agent-id="{element_id}"]') || 
+                                   document.querySelectorAll('a, button, input, [onclick], [role="button"]')[parseInt('{element_id}'.replace('ele-', ''))];
+                    if (element) {{
+                        const rect = element.getBoundingClientRect();
+                        const centerX = rect.left + rect.width / 2;
+                        const centerY = rect.top + rect.height / 2;
+                        
+                        const event = new MouseEvent('click', {{
+                            bubbles: true,
+                            cancelable: true,
+                            view: window,
+                            button: {'2' if button == 'right' else '0'},
+                            detail: {clicks},
+                            clientX: centerX,
+                            clientY: centerY
+                        }});
+                        element.dispatchEvent(event);
+                        return 'clicked at ' + centerX + ',' + centerY;
+                    }}
+                    return 'element not found';
+                }})();
+                """
+                self.browser_obj.send_browser_extension(
+                    browser_type=self.browser_obj.browser_type.value,
+                    key="executeScript",
+                    data={"script": js_code},
+                )
         except Exception as e:
             logger.warning(f"点击执行失败: {e}")
 
     def _execute_input_by_element_id(self, element_id: str, value: str):
         """通过元素ID执行输入"""
         try:
-            escaped_value = value.replace("'", "\\'").replace('"', '\\"')
-            js_code = f"""
-            (function() {{
-                const element = document.querySelector('[data-agent-id="{element_id}"]') || 
-                               document.querySelectorAll('input, textarea')[parseInt('{element_id}'.replace('ele-', ''))];
-                if (element) {{
-                    element.focus();
-                    element.value = '{escaped_value}';
-                    element.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    element.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    return 'input set';
-                }}
-                return 'element not found';
-            }})();
-            """
-            self.browser_obj.send_browser_extension(
-                browser_type=self.browser_obj.browser_type.value,
-                key="executeScript",
-                data={"script": js_code},
-            )
+            if self.mode == "cdp" and self.cdp_client:
+                self._ensure_browser_connected()
+                self.cdp_client.input_text(element_id, value)
+            else:
+                escaped_value = value.replace("'", "\\'").replace('"', '\\"')
+                js_code = f"""
+                (function() {{
+                    const element = document.querySelector('[data-agent-id="{element_id}"]') || 
+                                   document.querySelectorAll('input, textarea')[parseInt('{element_id}'.replace('ele-', ''))];
+                    if (element) {{
+                        element.focus();
+                        element.value = '{escaped_value}';
+                        element.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        element.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        return 'input set';
+                    }}
+                    return 'element not found';
+                }})();
+                """
+                self.browser_obj.send_browser_extension(
+                    browser_type=self.browser_obj.browser_type.value,
+                    key="executeScript",
+                    data={"script": js_code},
+                )
         except Exception as e:
             logger.warning(f"输入执行失败: {e}")
 
     def _execute_drag_by_element_ids(self, start_id: str, end_id: str):
         """通过元素ID执行拖拽"""
         try:
-            js_code = f"""
-            (function() {{
-                const startEl = document.querySelector('[data-agent-id="{start_id}"]');
-                const endEl = document.querySelector('[data-agent-id="{end_id}"]');
-                if (startEl && endEl) {{
-                    const startRect = startEl.getBoundingClientRect();
-                    const endRect = endEl.getBoundingClientRect();
-                    
-                    const startX = startRect.left + startRect.width / 2;
-                    const startY = startRect.top + startRect.height / 2;
-                    const endX = endRect.left + endRect.width / 2;
-                    const endY = endRect.top + endRect.height / 2;
-                    
-                    // 模拟拖拽事件
-                    startEl.dispatchEvent(new MouseEvent('mousedown', {{
-                        bubbles: true, clientX: startX, clientY: startY
-                    }}));
-                    document.dispatchEvent(new MouseEvent('mousemove', {{
-                        bubbles: true, clientX: endX, clientY: endY
-                    }}));
-                    endEl.dispatchEvent(new MouseEvent('mouseup', {{
-                        bubbles: true, clientX: endX, clientY: endY
-                    }}));
-                    return 'dragged';
-                }}
-                return 'elements not found';
-            }})();
-            """
-            self.browser_obj.send_browser_extension(
-                browser_type=self.browser_obj.browser_type.value,
-                key="executeScript",
-                data={"script": js_code},
-            )
+            if self.mode == "cdp" and self.cdp_client:
+                self._ensure_browser_connected()
+                self.cdp_client.drag(start_id, end_id)
+            else:
+                js_code = f"""
+                (function() {{
+                    const startEl = document.querySelector('[data-agent-id="{start_id}"]');
+                    const endEl = document.querySelector('[data-agent-id="{end_id}"]');
+                    if (startEl && endEl) {{
+                        const startRect = startEl.getBoundingClientRect();
+                        const endRect = endEl.getBoundingClientRect();
+                        
+                        const startX = startRect.left + startRect.width / 2;
+                        const startY = startRect.top + startRect.height / 2;
+                        const endX = endRect.left + endRect.width / 2;
+                        const endY = endRect.top + endRect.height / 2;
+                        
+                        startEl.dispatchEvent(new MouseEvent('mousedown', {{
+                            bubbles: true, clientX: startX, clientY: startY
+                        }}));
+                        document.dispatchEvent(new MouseEvent('mousemove', {{
+                            bubbles: true, clientX: endX, clientY: endY
+                        }}));
+                        endEl.dispatchEvent(new MouseEvent('mouseup', {{
+                            bubbles: true, clientX: endX, clientY: endY
+                        }}));
+                        return 'dragged';
+                    }}
+                    return 'elements not found';
+                }})();
+                """
+                self.browser_obj.send_browser_extension(
+                    browser_type=self.browser_obj.browser_type.value,
+                    key="executeScript",
+                    data={"script": js_code},
+                )
         except Exception as e:
             logger.warning(f"拖拽执行失败: {e}")
 
     def _execute_hotkey(self, hotkey_value: str):
         """执行热键操作"""
         try:
-            js_code = f"""
-            (function() {{
-                const keys = '{hotkey_value}'.toLowerCase().split('+').map(k => k.trim());
-                const keyMap = {{
-                    'ctrl': 'Control',
-                    'alt': 'Alt',
-                    'shift': 'Shift',
-                    'enter': 'Enter',
-                    'tab': 'Tab',
-                    'esc': 'Escape',
-                    'space': ' ',
-                    'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', 'e': 'e', 'f': 'f',
-                    'g': 'g', 'h': 'h', 'i': 'i', 'j': 'j', 'k': 'k', 'l': 'l',
-                    'm': 'm', 'n': 'n', 'o': 'o', 'p': 'p', 'q': 'q', 'r': 'r',
-                    's': 's', 't': 't', 'u': 'u', 'v': 'v', 'w': 'w', 'x': 'x',
-                    'y': 'y', 'z': 'z'
-                }};
-                
-                const eventInit = {{ bubbles: true, cancelable: true }};
-                keys.forEach(key => {{
-                    if (keyMap[key]) {{
-                        eventInit.key = keyMap[key];
-                        eventInit.code = 'Key' + keyMap[key].toUpperCase();
-                    }}
-                }});
-                
-                document.dispatchEvent(new KeyboardEvent('keydown', eventInit));
-                document.dispatchEvent(new KeyboardEvent('keyup', eventInit));
-                return 'hotkey pressed';
-            }})();
-            """
-            self.browser_obj.send_browser_extension(
-                browser_type=self.browser_obj.browser_type.value,
-                key="executeScript",
-                data={"script": js_code},
-            )
+            if self.mode == "cdp" and self.cdp_client:
+                self._ensure_browser_connected()
+                self.cdp_client.hotkey(hotkey_value)
+            else:
+                js_code = f"""
+                (function() {{
+                    const keys = '{hotkey_value}'.toLowerCase().split('+').map(k => k.trim());
+                    const keyMap = {{
+                        'ctrl': 'Control',
+                        'alt': 'Alt',
+                        'shift': 'Shift',
+                        'enter': 'Enter',
+                        'tab': 'Tab',
+                        'esc': 'Escape',
+                        'space': ' ',
+                        'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', 'e': 'e', 'f': 'f',
+                        'g': 'g', 'h': 'h', 'i': 'i', 'j': 'j', 'k': 'k', 'l': 'l',
+                        'm': 'm', 'n': 'n', 'o': 'o', 'p': 'p', 'q': 'q', 'r': 'r',
+                        's': 's', 't': 't', 'u': 'u', 'v': 'v', 'w': 'w', 'x': 'x',
+                        'y': 'y', 'z': 'z'
+                    }};
+                    
+                    const eventInit = {{ bubbles: true, cancelable: true }};
+                    keys.forEach(key => {{
+                        if (keyMap[key]) {{
+                            eventInit.key = keyMap[key];
+                            eventInit.code = 'Key' + keyMap[key].toUpperCase();
+                        }}
+                    }});
+                    
+                    document.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+                    document.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+                    return 'hotkey pressed';
+                }})();
+                """
+                self.browser_obj.send_browser_extension(
+                    browser_type=self.browser_obj.browser_type.value,
+                    key="executeScript",
+                    data={"script": js_code},
+                )
         except Exception as e:
             logger.warning(f"热键执行失败: {e}")
 
     def _execute_hover_by_element_id(self, element_id: str):
         """通过元素ID执行悬停"""
         try:
-            js_code = f"""
-            (function() {{
-                const element = document.querySelector('[data-agent-id="{element_id}"]');
-                if (element) {{
-                    const rect = element.getBoundingClientRect();
-                    const event = new MouseEvent('mouseover', {{
-                        bubbles: true,
-                        clientX: rect.left + rect.width / 2,
-                        clientY: rect.top + rect.height / 2
-                    }});
-                    element.dispatchEvent(event);
-                    return 'hovered';
-                }}
-                return 'element not found';
-            }})();
-            """
-            self.browser_obj.send_browser_extension(
-                browser_type=self.browser_obj.browser_type.value,
-                key="executeScript",
-                data={"script": js_code},
-            )
+            if self.mode == "cdp" and self.cdp_client:
+                self._ensure_browser_connected()
+                self.cdp_client.hover(element_id)
+            else:
+                js_code = f"""
+                (function() {{
+                    const element = document.querySelector('[data-agent-id="{element_id}"]');
+                    if (element) {{
+                        const rect = element.getBoundingClientRect();
+                        const event = new MouseEvent('mouseover', {{
+                            bubbles: true,
+                            clientX: rect.left + rect.width / 2,
+                            clientY: rect.top + rect.height / 2
+                        }});
+                        element.dispatchEvent(event);
+                        return 'hovered';
+                    }}
+                    return 'element not found';
+                }})();
+                """
+                self.browser_obj.send_browser_extension(
+                    browser_type=self.browser_obj.browser_type.value,
+                    key="executeScript",
+                    data={"script": js_code},
+                )
         except Exception as e:
             logger.warning(f"悬停执行失败: {e}")
 
     def _execute_scroll(self, direction: str, distance: int, element_id: str = ""):
         """执行滚动操作"""
         try:
-            if element_id:
-                js_code = f"""
-                (function() {{
-                    const element = document.querySelector('[data-agent-id="{element_id}"]');
-                    if (element) {{
-                        element.scrollBy({{ 
+            if self.mode == "cdp" and self.cdp_client:
+                self._ensure_browser_connected()
+                self.cdp_client.scroll(direction, distance, element_id)
+            else:
+                if element_id:
+                    js_code = f"""
+                    (function() {{
+                        const element = document.querySelector('[data-agent-id="{element_id}"]');
+                        if (element) {{
+                            element.scrollBy({{ 
+                                top: {'-' if direction == 'up' else ''}{distance}, 
+                                behavior: 'smooth' 
+                            }});
+                            return 'scrolled element';
+                        }}
+                        return 'element not found';
+                    }})();
+                    """
+                else:
+                    js_code = f"""
+                    (function() {{
+                        window.scrollBy({{ 
                             top: {'-' if direction == 'up' else ''}{distance}, 
                             behavior: 'smooth' 
                         }});
-                        return 'scrolled element';
-                    }}
-                    return 'element not found';
-                }})();
-                """
-            else:
-                js_code = f"""
-                (function() {{
-                    window.scrollBy({{ 
-                        top: {'-' if direction == 'up' else ''}{distance}, 
-                        behavior: 'smooth' 
-                    }});
-                    return 'scrolled window';
-                }})();
-                """
-            self.browser_obj.send_browser_extension(
-                browser_type=self.browser_obj.browser_type.value,
-                key="executeScript",
-                data={"script": js_code},
-            )
+                        return 'scrolled window';
+                    }})();
+                    """
+                self.browser_obj.send_browser_extension(
+                    browser_type=self.browser_obj.browser_type.value,
+                    key="executeScript",
+                    data={"script": js_code},
+                )
         except Exception as e:
             logger.warning(f"滚动执行失败: {e}")
 
@@ -851,3 +1014,6 @@ class CustomActionBrowser:
                 "thought": thought,
                 "data": param,
             }
+        finally:
+            if self.mode == "cdp" and self.cdp_client:
+                self.cdp_client.close(stop_browser=True)
