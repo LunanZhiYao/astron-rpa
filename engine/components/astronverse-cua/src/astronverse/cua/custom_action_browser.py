@@ -348,7 +348,6 @@ class CustomActionBrowser:
 
         self.snapshots: list[dict] = []
         self.conversation_history: list[tuple[str, Optional[dict]]] = []
-        self.pending_response: Optional[str] = None
         self.instruction: Optional[str] = None
 
         self.browser_obj: Optional[Browser] = None
@@ -693,10 +692,10 @@ class CustomActionBrowser:
         start_index = max(0, len(self.conversation_history) - self.max_history_rounds)
         recent_history = self.conversation_history[start_index:]
 
-        # 添加历史消息
-        for i, (assistant_response, hist_snapshot) in enumerate(recent_history):
-            if i < len(recent_history) - 1 and hist_snapshot:
-                # 添加历史快照
+        # 添加历史消息 - 确保 user/assistant 配对正确
+        for assistant_response, hist_snapshot in recent_history:
+            if hist_snapshot:
+                # 添加历史快照作为 user 消息
                 snapshot_text = json.dumps(hist_snapshot, ensure_ascii=False, indent=2)
                 messages.append(
                     {
@@ -704,8 +703,8 @@ class CustomActionBrowser:
                         "content": f"页面快照：\n```json\n{snapshot_text}\n```",
                     }
                 )
-                messages.append({"role": "assistant", "content": assistant_response})
-            elif i == len(recent_history) - 1:
+            # 添加 assistant 的响应
+            if assistant_response:
                 messages.append({"role": "assistant", "content": assistant_response})
 
         # 添加当前页面快照
@@ -1166,13 +1165,6 @@ class CustomActionBrowser:
                 with open(snapshot_path, "w", encoding="utf-8") as f:
                     json.dump(snapshot, f, ensure_ascii=False, indent=2)
 
-                # 如果有待保存的响应，现在保存
-                if self.pending_response:
-                    self.conversation_history.append(
-                        (self.pending_response, snapshot)
-                    )
-                    self.pending_response = None
-
                 # 2. 构建消息并调用模型
                 logger.info(f"快照：{snapshot}")
                 messages = self.build_messages(instruction, snapshot)
@@ -1180,8 +1172,9 @@ class CustomActionBrowser:
                 response = self.inference(messages)
                 logger.info(response)
 
-                # 保存响应
-                self.pending_response = response
+                # 保存响应到历史记录（与当前快照配对）
+                if response:
+                    self.conversation_history.append((response, snapshot))
 
                 # 3. 执行动作
                 logger.info("执行动作...")
