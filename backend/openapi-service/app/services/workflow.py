@@ -261,7 +261,7 @@ class WorkflowService:
         return {"total": total, "active": active, "inactive": inactive}
 
     async def get_astron_workflows(self, auth_id: int, app_id: str, api_key: str, api_secret: str):
-        """获取星辰Agent所有工作流"""
+        """获取罗文Agent所有工作流"""
         try:
             headers = {
                 "X-Consumer-Username": app_id,

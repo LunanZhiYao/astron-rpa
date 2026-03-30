@@ -145,9 +145,9 @@ class AstronApiKeyService:
         self.redis = redis
 
     async def create_astron_agent(self, astron_agent_data, user_id: str):
-        """创建星辰Agent"""
+        """创建罗文Agent"""
 
-        # 创建新的星辰Agent记录
+        # 创建新的罗文Agent记录
         new_astron_agent = AstronAgentDB(
             user_id=user_id,
             name=astron_agent_data.name,
@@ -168,9 +168,9 @@ class AstronApiKeyService:
         return new_astron_agent
 
     async def delete_astron_agent(self, astron_agent_id: str, user_id: str) -> bool:
-        """软删除星辰Agent（设置is_active为0）"""
+        """软删除罗文Agent（设置is_active为0）"""
         try:
-            # 更新指定用户和ID的星辰Agent，将is_active设置为0
+            # 更新指定用户和ID的罗文Agent，将is_active设置为0
             stmt = (
                 update(AstronAgentDB)
                 .where(AstronAgentDB.id == astron_agent_id, AstronAgentDB.user_id == user_id)
@@ -194,7 +194,7 @@ class AstronApiKeyService:
             raise
 
     async def get_astron_agents(self, user_id: str, pageNo: int = 1, pageSize: int = 10) -> list[dict]:
-        """获取星辰Agent列表"""
+        """获取罗文Agent列表"""
         try:
             skip = (pageNo - 1) * pageSize
 
@@ -233,7 +233,7 @@ class AstronApiKeyService:
             raise
 
     async def get_all_astron_agents(self, user_id: str) -> list[dict]:
-        """获取用户的所有星辰Agent（不分页）"""
+        """获取用户的所有罗文Agent（不分页）"""
         try:
             # 构建查询，只获取活跃的记录
             query = (
@@ -268,9 +268,9 @@ class AstronApiKeyService:
             raise
 
     async def update_astron_agent(self, astron_agent_id: str, user_id: str, update_data) -> bool:
-        """更新星辰Agent"""
+        """更新罗文Agent"""
         try:
-            # 更新指定用户和ID的星辰Agent
+            # 更新指定用户和ID的罗文Agent
             update_values = {"updated_at": datetime.now(pytz.timezone("Asia/Shanghai")).replace(tzinfo=None)}
 
             # 只更新提供的字段
@@ -310,7 +310,7 @@ class AstronApiKeyService:
             raise
 
     async def get_astron_agent_by_id(self, astron_agent_id: int, user_id: str) -> Optional[dict]:
-        """根据ID获取单个星辰Agent"""
+        """根据ID获取单个罗文Agent"""
         try:
             # 构建查询，只获取活跃的记录
             query = (

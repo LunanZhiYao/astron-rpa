@@ -377,15 +377,15 @@ async def stop_current_workflow(user_id: str = Depends(get_user_id_from_api_key)
 @router.get(
     "/get-astron",
     response_model=StandardResponse,
-    summary="获取星辰Agent所有工作流",
-    description="获取绑定了的星辰Agent的所有工作流列表",
+    summary="获取罗文Agent所有工作流",
+    description="获取绑定了的罗文Agent的所有工作流列表",
 )
 async def get_astron_workflows(
     user_id: str = Depends(get_user_id_from_header),
     api_key_service: AstronApiKeyService = Depends(get_astron_api_key_service),
     workflow_service: WorkflowService = Depends(get_workflow_service),
 ):
-    """获取星辰Agent所有工作流"""
+    """获取罗文Agent所有工作流"""
     try:
         astron_auths = await api_key_service.get_all_astron_agents(user_id)
         total_workflows = []

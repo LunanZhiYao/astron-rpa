@@ -55,7 +55,7 @@ class ExecutionCreate(BaseModel):
     recording_config: Optional[str] = Field(None, description="录制配置")
     version: Optional[int] = Field(None, description="工作流版本号")
 
-    # 2026-01-12 新增手机号参数，用于星辰Agent的复制调用
+    # 2026-01-12 新增手机号参数，用于罗文Agent的复制调用
     phone_number: Optional[str] = Field(None, description="手机号")
 
 

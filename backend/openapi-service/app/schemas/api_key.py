@@ -27,7 +27,7 @@ class ApiKeyDelete(BaseModel):
 
 
 class AstronAgentCreate(BaseModel):
-    """创建星辰Agent请求模型"""
+    """创建罗文Agent请求模型"""
 
     api_key: str = Field(..., description="API Key", min_length=1, max_length=100)
     api_secret: str = Field(..., description="API Secret", min_length=1, max_length=100)
@@ -36,15 +36,15 @@ class AstronAgentCreate(BaseModel):
 
 
 class AstronAgentDelete(BaseModel):
-    """删除星辰Agent请求模型"""
+    """删除罗文Agent请求模型"""
 
-    id: Union[int, str] = Field(..., description="星辰Agent ID")
+    id: Union[int, str] = Field(..., description="罗文Agent ID")
 
 
 class AstronAgentUpdate(BaseModel):
-    """更新星辰Agent请求模型"""
+    """更新罗文Agent请求模型"""
 
-    id: Union[int, str] = Field(..., description="星辰Agent ID")
+    id: Union[int, str] = Field(..., description="罗文Agent ID")
     name: Optional[str] = Field(None, description="用户名称", min_length=1, max_length=100)
     app_id: Optional[str] = Field(None, description="应用ID", min_length=1, max_length=100)
     api_key: Optional[str] = Field(None, description="API Key", min_length=1, max_length=100)

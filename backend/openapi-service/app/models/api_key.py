@@ -18,7 +18,7 @@ class OpenAPIDB(Base):
 
 
 class AstronAgentDB(Base):
-    """星辰Agent数据库模型"""
+    """罗文Agent数据库模型"""
 
     __tablename__ = "astron_agent_auth"
     id = Column(Integer, primary_key=True, index=True)

@@ -74,7 +74,7 @@ class NotifyUtils:
 
     def send(self, robot_name, run_time):
         if self.email_setting.get("is_enable", False):
-            content = "【讯飞星火RPA】您运行的机器人 {}于{}运行失败，请您及时查看".format(robot_name, run_time)
+            content = "【罗文RPA】您运行的机器人 {}于{}运行失败，请您及时查看".format(robot_name, run_time)
             self.login_send()
             self.send_email(content)
         if self.text_setting.get("is_enable", False):
@@ -94,7 +94,7 @@ class NotifyUtils:
 
         for i in range(len(receiver_list)):
             self.email_msg = MIMEMultipart()
-            self.email_msg["From"] = self.format_addr(f"星辰RPA <{sender_mail}>")
+            self.email_msg["From"] = self.format_addr(f"罗文RPA <{sender_mail}>")
             self.email_msg["To"] = Header(receiver_list[i])
             self.email_msg["Cc"] = cc_list[i]
             self.email_msg["date"] = time.strftime("%a, %d %b %Y %H:%M:%S %z")

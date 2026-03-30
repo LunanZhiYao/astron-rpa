@@ -90,15 +90,15 @@ async def delete_api_key(
     "/create-astron",
     response_model=StandardResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="创建星辰Agent",
-    description="为当前用户创建星辰Agent",
+    summary="创建罗文Agent",
+    description="为当前用户创建罗文Agent",
 )
 async def create_astron_agent(
     astron_agent_data: AstronAgentCreate,
     user_id: str = Depends(get_user_id_from_header),
     service: AstronApiKeyService = Depends(get_astron_api_key_service),
 ):
-    """创建星辰Agent"""
+    """创建罗文Agent"""
     try:
         # 验证数据
         if not astron_agent_data.api_key or not astron_agent_data.api_secret:
@@ -111,12 +111,12 @@ async def create_astron_agent(
         # X-Consumer-Username [appId]
         # Authorization [Bearer api_key:api_secret]
 
-        # 调用服务层创建星辰Agent
+        # 调用服务层创建罗文Agent
         astron_auth = await service.create_astron_agent(astron_agent_data, user_id)
 
         return StandardResponse(
             code=ResCode.SUCCESS,
-            msg="星辰Agent授权创建成功",
+            msg="罗文Agent授权创建成功",
             data={
                 "id": astron_auth.id,
                 "created_at": astron_auth.created_at,
@@ -129,15 +129,15 @@ async def create_astron_agent(
         logger.error(f"Error creating AstronAgent: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="创建星辰Agent认证失败",
+            detail="创建罗文Agent认证失败",
         )
 
 
 @router.get(
     "/get-astron",
     response_model=StandardResponse,
-    summary="获取所有星辰Agent",
-    description="获取当前用户的所有星辰Agent列表",
+    summary="获取所有罗文Agent",
+    description="获取当前用户的所有罗文Agent列表",
 )
 async def get_astron_agents(
     pageNo: int = Query(1, ge=1, description="获取哪一页"),
@@ -145,7 +145,7 @@ async def get_astron_agents(
     user_id: str = Depends(get_user_id_from_header),
     service: AstronApiKeyService = Depends(get_astron_api_key_service),
 ):
-    """获取星辰Agent列表"""
+    """获取罗文Agent列表"""
     try:
         astron_agents = await service.get_astron_agents(user_id, pageNo, pageSize)
         return StandardResponse(
@@ -159,21 +159,21 @@ async def get_astron_agents(
 @router.get(
     "/get-astron-by-id",
     response_model=StandardResponse,
-    summary="根据ID获取星辰Agent",
-    description="根据ID获取指定的星辰Agent信息",
+    summary="根据ID获取罗文Agent",
+    description="根据ID获取指定的罗文Agent信息",
 )
 async def get_astron_agent_by_id(
-    id: int = Query(..., description="星辰Agent的ID"),
+    id: int = Query(..., description="罗文Agent的ID"),
     user_id: str = Depends(get_user_id_from_header),
     service: AstronApiKeyService = Depends(get_astron_api_key_service),
 ):
-    """根据ID获取星辰Agent"""
+    """根据ID获取罗文Agent"""
     try:
         astron_agent = await service.get_astron_agent_by_id(id, user_id)
         if astron_agent is None:
             return StandardResponse(
                 code=ResCode.ERR,
-                msg=f"星辰Agent with ID {id} not found",
+                msg=f"罗文Agent with ID {id} not found",
                 data=None,
             )
 
@@ -187,15 +187,15 @@ async def get_astron_agent_by_id(
     "/remove-astron",
     response_model=StandardResponse,
     status_code=status.HTTP_200_OK,
-    summary="删除指定星辰Agent",
-    description="删除指定的星辰Agent",
+    summary="删除指定罗文Agent",
+    description="删除指定的罗文Agent",
 )
 async def delete_astron_agent(
     request: AstronAgentDelete,
     user_id: str = Depends(get_user_id_from_header),
     service: AstronApiKeyService = Depends(get_astron_api_key_service),
 ):
-    """删除星辰Agent"""
+    """删除罗文Agent"""
     try:
         astron_agent_id = str(request.id)  # 转换为字符串类型
         success = await service.delete_astron_agent(astron_agent_id, user_id)
@@ -216,15 +216,15 @@ async def delete_astron_agent(
     "/update-astron",
     response_model=StandardResponse,
     status_code=status.HTTP_200_OK,
-    summary="更新指定星辰Agent",
-    description="更新指定的星辰Agent信息",
+    summary="更新指定罗文Agent",
+    description="更新指定的罗文Agent信息",
 )
 async def update_astron_agent(
     request: AstronAgentUpdate,
     user_id: str = Depends(get_user_id_from_header),
     service: AstronApiKeyService = Depends(get_astron_api_key_service),
 ):
-    """更新星辰Agent"""
+    """更新罗文Agent"""
     astron_agent_id = str(request.id)  # 转换为字符串类型
     try:
         success = await service.update_astron_agent(astron_agent_id, user_id, request)
