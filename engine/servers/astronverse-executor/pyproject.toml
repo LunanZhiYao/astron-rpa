@@ -19,6 +19,7 @@ dependencies = [
     "astronverse-report",
     "astronverse-script",
     "astronverse-browser",
+    "astronverse-cua",
     "astronverse-system",
     "astronverse-dialog",
     "astronverse-smart",
@@ -34,6 +35,7 @@ astronverse-dataprocess = {path = "../../components/astronverse-dataprocess", ed
 astronverse-report = {path = "../../components/astronverse-report", editable = true}
 astronverse-script = {path = "../../components/astronverse-script", editable = true}
 astronverse-browser = {path = "../../components/astronverse-browser", editable = true}
+astronverse-cua = {path = "../../components/astronverse-cua", editable = true}
 astronverse-system = {path = "../../components/astronverse-system", editable = true}
 astronverse-dialog = {path = "../../components/astronverse-dialog", editable = true}
 astronverse-smart = {path = "../../components/astronverse-smart", editable = true}

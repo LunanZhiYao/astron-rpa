@@ -91,8 +91,8 @@ services:
       - REDIS_PORT_NUMBER=${REDIS_PORT}
       - REDIS_IO_THREADS=4
       - ALLOW_EMPTY_PASSWORD=yes
-    # ports:
-    #  - "${REDIS_PORT}:6379"
+    ports:
+      - "${REDIS_PORT}:6379"
     volumes:
       - ./data/bitnami/redis:/bitnami/redis/data:rw,Z
     command: >
@@ -120,9 +120,9 @@ services:
     privileged: true
     restart: always
     env_file: *env_file
-    # ports:
-    #   - "9000:9000"
-    #   - "9001:9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - ./data/minio:/data
     environment:
@@ -246,8 +246,8 @@ services:
       - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}/${REDIS_DB}
       - AICHAT_BASE_URL=${AICHAT_BASE_URL}
       - AICHAT_API_KEY=${AICHAT_API_KEY}
-    # ports:
-    #   - "8020:8020"
+    ports:
+      - "8020:8020"
     volumes:
       - ../backend/openapi-service/app:/app/app
     depends_on:
@@ -268,8 +268,8 @@ services:
     container_name: rpa-opensource-resource-service
     restart: always
     env_file: *env_file
-    # ports:
-    #   - "8030:8030"
+    ports:
+      - "8030:8030"
     volumes:
       - ./logs/resource-service:/app/logs
     depends_on:
@@ -292,8 +292,8 @@ services:
     container_name: rpa-opensource-robot-service
     restart: always
     env_file: *env_file
-    # ports:
-    #   - "8040:8040"
+    ports:
+      - "8040:8040"
     volumes:
       - ./logs/robot-service:/app/logs
     depends_on:
@@ -314,8 +314,8 @@ services:
     container_name: rpa-opensource-rpa-auth
     restart: always
     env_file: *env_file
-    # ports:
-    #   - "10251:10251"
+    ports:
+      - "10251:10251"
     volumes:
       - ./logs/rpa-auth:/app/logs
     depends_on:
