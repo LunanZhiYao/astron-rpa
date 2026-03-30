@@ -21,6 +21,7 @@ from astronverse.cua.action_parser import (
     parsing_response_to_pyautogui_code,
 )
 from astronverse.cua.custom_action_screen import CustomActionScreen
+from astronverse.cua.custom_action_browser import CustomActionBrowser
 from PIL import Image, ImageDraw
 
 # 电脑 GUI 任务场景的提示词模板
@@ -633,6 +634,59 @@ class ComputerUse:
             "thought": result.get("thought", ""),
             "data": result.get("data", ""),
         }
+
+    @staticmethod
+    @atomicMg.atomic(
+        "ComputerUse",
+        inputList=[
+            atomicMg.param("instruction", types="Str"),
+            atomicMg.param("profile_name", types="Str", required=False),
+            atomicMg.param("max_steps", types="Int", required=False),
+            atomicMg.param("temperature", types="Float", required=False),
+        ],
+        outputList=[
+            atomicMg.param("browser_use_res", types="Dict"),
+        ],
+    )
+    def custom_action_browser(
+        instruction: str,
+        profile_name: str = "default",
+        max_steps: int = 20,
+        temperature: float = 0.0,
+    ):
+        """
+        自定义AI操作浏览器
+
+        Args:
+            instruction: 用户指令
+            profile_name: 浏览器Profile名称
+            max_steps: 最大执行步数
+            temperature: 模型温度参数
+
+        Returns:
+            执行结果，包含success, steps, duration, log_dir, error等字段
+        """
+        logger.info("=-=" * 60)
+        print(instruction)
+
+        agent = CustomActionBrowser(
+            max_steps=max_steps,
+            temperature=temperature,
+            profile_name=profile_name,
+        )
+        result = agent.run(instruction)
+
+        # 返回结果，确保所有输出参数都有值
+        return {
+            "success": result.get("success", False),
+            "steps": result.get("steps", 0),
+            "duration": result.get("duration", 0.0),
+            "log_dir": result.get("log_dir", ""),
+            "error": result.get("error", ""),
+            "thought": result.get("thought", ""),
+            "data": result.get("data", ""),
+        }
+
 
     @staticmethod
     @atomicMg.atomic(

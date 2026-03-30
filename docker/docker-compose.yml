@@ -14,8 +14,8 @@ services:
       MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
       MYSQL_DATABASE: ${DATABASE_NAME}
     env_file: *env_file
-    # ports:
-    #  - "${DATABASE_PORT}:3306"
+    ports:
+      - "${DATABASE_PORT}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./volumes/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
