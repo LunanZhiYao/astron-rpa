@@ -18,6 +18,13 @@ from astronverse.baseline.logger.logger import logger
 class CDPBrowserClient:
     """Chrome DevTools Protocol 浏览器客户端"""
 
+    # 可交互元素选择器 - 用于快照获取和元素查找的统一选择器
+    INTERACTIVE_SELECTORS = (
+        'a, button, input, textarea, select, [onclick], '
+        '[role="button"], [role="link"], [role="textbox"], [role="searchbox"], '
+        '[contenteditable="true"], [contenteditable=""]'
+    )
+
     # 浏览器可执行文件路径
     BROWSER_PATHS = {
         "Windows": {
@@ -358,63 +365,65 @@ class CDPBrowserClient:
         Returns:
             页面快照字典
         """
-        snapshot_script = """
-        (function() {
-            function getElementSnapshot(element, index) {
+        # 使用双引号包裹选择器，避免与 JavaScript 中的单引号冲突
+        selectors = self.INTERACTIVE_SELECTORS.replace("'", '"')
+        snapshot_script = f"""
+        (function() {{
+            function getElementSnapshot(element, index) {{
                 const rect = element.getBoundingClientRect();
                 const computedStyle = window.getComputedStyle(element);
                 
                 if (rect.width === 0 || rect.height === 0 || 
                     computedStyle.display === 'none' || 
-                    computedStyle.visibility === 'hidden') {
+                    computedStyle.visibility === 'hidden') {{
                     return null;
-                }
+                }}
                 
-                const snapshot = {
+                const snapshot = {{
                     elementId: 'ele-' + index,
                     tagName: element.tagName.toLowerCase(),
                     text: element.textContent ? element.textContent.trim().substring(0, 100) : '',
-                    bounds: {
+                    bounds: {{
                         x: Math.round(rect.left),
                         y: Math.round(rect.top),
                         width: Math.round(rect.width),
                         height: Math.round(rect.height)
-                    },
-                    attributes: {}
-                };
+                    }},
+                    attributes: {{}}
+                }};
                 
                 const attrs = ['id', 'name', 'type', 'placeholder', 'value', 'href', 'src', 'alt', 'title', 'class'];
-                attrs.forEach(attr => {
-                    if (element.hasAttribute(attr)) {
+                attrs.forEach(attr => {{
+                    if (element.hasAttribute(attr)) {{
                         snapshot.attributes[attr] = element.getAttribute(attr);
-                    }
-                });
+                    }}
+                }});
                 
                 return snapshot;
-            }
+            }}
             
-            const interactiveSelectors = 'a, button, input, textarea, select, [onclick], [role="button"], [role="link"], [role="textbox"]';
+            const interactiveSelectors = '{selectors}';
             const elements = document.querySelectorAll(interactiveSelectors);
             const elementList = [];
             
-            elements.forEach((el, idx) => {
+            elements.forEach((el, idx) => {{
                 const snapshot = getElementSnapshot(el, idx);
-                if (snapshot) {
+                if (snapshot) {{
                     elementList.push(snapshot);
-                }
-            });
+                }}
+            }});
             
-            return {
+            return {{
                 url: window.location.href,
                 title: document.title,
-                viewport: {
+                viewport: {{
                     width: window.innerWidth,
                     height: window.innerHeight
-                },
+                }},
                 elements: elementList,
                 timestamp: new Date().toISOString()
-            };
-        })();
+            }};
+        }})();
         """
 
         try:
@@ -480,6 +489,8 @@ class CDPBrowserClient:
         Returns:
             包含 x, y, found 的字典
         """
+        # 使用双引号包裹选择器，避免与 JavaScript 中的单引号冲突
+        selectors = self.INTERACTIVE_SELECTORS.replace("'", '"')
         script = f"""
         (function() {{
             let element = null;
@@ -489,7 +500,7 @@ class CDPBrowserClient:
             if (elementId.startsWith('ele-')) {{
                 const index = parseInt(elementId.replace('ele-', ''));
                 if (!isNaN(index)) {{
-                    const interactiveSelectors = 'a, button, input, textarea, select, [onclick], [role="button"], [role="link"], [role="textbox"], [role="searchbox"], [contenteditable="true"], [contenteditable=""]';
+                    const interactiveSelectors = '{selectors}';
                     const elements = document.querySelectorAll(interactiveSelectors);
                     if (index >= 0 && index < elements.length) {{
                         element = elements[index];
@@ -563,18 +574,20 @@ class CDPBrowserClient:
         self.click(result["x"], result["y"])
         time.sleep(0.1)
 
-        # 通过多种方式查找并设置值
+        # 使用双引号包裹选择器，避免与 JavaScript 中的单引号冲突
+        selectors = self.INTERACTIVE_SELECTORS.replace("'", '"')
+        # 通过多种方式查找并设置值（使用与 _find_element_by_id 相同的选择器逻辑）
         script = f"""
         (function() {{
             let element = null;
             const elementId = '{element_id}';
 
-            // 1. 尝试通过 ele- 索引查找 input/textarea/contenteditable
+            // 1. 尝试通过 ele- 索引查找（使用统一的选择器）
             if (elementId.startsWith('ele-')) {{
                 const index = parseInt(elementId.replace('ele-', ''));
                 if (!isNaN(index)) {{
-                    const inputSelectors = 'input, textarea, [contenteditable="true"], [contenteditable=""], [role="textbox"], [role="searchbox"]';
-                    const elements = document.querySelectorAll(inputSelectors);
+                    const interactiveSelectors = '{selectors}';
+                    const elements = document.querySelectorAll(interactiveSelectors);
                     if (index >= 0 && index < elements.length) {{
                         element = elements[index];
                     }}
@@ -755,6 +768,8 @@ class CDPBrowserClient:
             distance: 滚动距离
             element_id: 可选的元素ID (支持 ele-0, #id, name, CSS选择器)
         """
+        # 使用双引号包裹选择器，避免与 JavaScript 中的单引号冲突
+        selectors = self.INTERACTIVE_SELECTORS.replace("'", '"')
         if element_id:
             # 滚动指定元素
             result = self._find_element_by_id(element_id)
@@ -770,11 +785,12 @@ class CDPBrowserClient:
 
                 let element = null;
 
-                // 1. 尝试通过 ele- 索引查找
+                // 1. 尝试通过 ele- 索引查找（使用统一的选择器）
                 if (elementId.startsWith('ele-')) {{
                     const index = parseInt(elementId.replace('ele-', ''));
                     if (!isNaN(index)) {{
-                        const elements = document.querySelectorAll('*');
+                        const interactiveSelectors = '{selectors}';
+                        const elements = document.querySelectorAll(interactiveSelectors);
                         if (index >= 0 && index < elements.length) {{
                             element = elements[index];
                         }}
@@ -893,14 +909,33 @@ class CDPBrowserClient:
             "button": "left"
         })
 
-    def navigate(self, url: str):
+    def navigate(self, url: str, wait_load: bool = True, timeout: float = 10.0):
         """
         导航到指定 URL
 
         Args:
             url: 目标 URL
+            wait_load: 是否等待页面加载完成
+            timeout: 等待超时时间（秒）
         """
         self.send_command("Page.navigate", {"url": url})
+        
+        if wait_load:
+            # 等待页面加载完成
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                try:
+                    # 检查 document.readyState
+                    ready_state = self.execute_script("document.readyState")
+                    if ready_state == "complete":
+                        # 额外等待一小段时间确保 JavaScript 执行完成
+                        time.sleep(0.5)
+                        return True
+                except Exception as e:
+                    logger.warning(f"[CDP] 等待页面加载时出错: {e}")
+                time.sleep(0.2)
+            logger.warning(f"[CDP] 页面加载等待超时 ({timeout}s)")
+        return True
 
     def go_back(self):
         """浏览器后退"""
@@ -910,9 +945,32 @@ class CDPBrowserClient:
         """浏览器前进"""
         self.execute_script("window.history.forward()")
 
-    def refresh(self):
-        """刷新页面"""
+    def refresh(self, wait_load: bool = True, timeout: float = 10.0):
+        """
+        刷新页面
+
+        Args:
+            wait_load: 是否等待页面加载完成
+            timeout: 等待超时时间（秒）
+        """
         self.send_command("Page.reload")
+        
+        if wait_load:
+            # 等待页面加载完成
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                try:
+                    # 检查 document.readyState
+                    ready_state = self.execute_script("document.readyState")
+                    if ready_state == "complete":
+                        # 额外等待一小段时间确保 JavaScript 执行完成
+                        time.sleep(0.5)
+                        return True
+                except Exception as e:
+                    logger.warning(f"[CDP] 等待页面刷新时出错: {e}")
+                time.sleep(0.2)
+            logger.warning(f"[CDP] 页面刷新等待超时 ({timeout}s)")
+        return True
 
     def get_url(self) -> str:
         """获取当前页面 URL"""

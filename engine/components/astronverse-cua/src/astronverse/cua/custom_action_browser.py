@@ -941,7 +941,7 @@ class CustomActionBrowser:
                     self.pending_response = None
 
                 # 2. 构建消息并调用模型
-                logger.info("模型分析中...")
+                logger.info(f"快照：{snapshot}")
                 messages = self.build_messages(instruction, snapshot)
 
                 response = self.inference(messages)
