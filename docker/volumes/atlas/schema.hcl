@@ -6100,7 +6100,7 @@ table "user_entitlement" {
 }
 table "astron_agent_auth" {
   schema = schema.rpa
-  comment = "星辰Agent鉴权储存"
+  comment = "罗文Agent鉴权储存"
   charset = "utf8mb4"
   collate = "utf8mb4_0900_ai_ci"
   column "id" {

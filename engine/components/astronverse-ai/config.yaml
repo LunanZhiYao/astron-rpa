@@ -73,8 +73,8 @@ atomic:
         subTitle: AI生成
         tip: ''
   Agent.call_xcagent:
-    title: 调用星辰Agent流程
-    comment: 调用星辰Agent流程 @{flow_id} ，完成您指定的任务。
+    title: 调用罗文Agent流程
+    comment: 调用罗文Agent流程 @{flow_id} ，完成您指定的任务。
     icon: call-dify-workflow
     helpManual: ''
     inputList:
@@ -104,21 +104,21 @@ atomic:
         tip: ''
     outputList:
       - key: xcagent_result
-        title: 星辰Agent返回值
+        title: 罗文Agent返回值
         subTitle: AI生成
         tip: ''
   Agent.call_astron_agent:
-    title: 获取并调用星辰Agent流程
-    comment: 根据您的配置获取星辰Agent流程，完成您指定的任务。
+    title: 获取并调用罗文Agent流程
+    comment: 根据您的配置获取罗文Agent流程，完成您指定的任务。
     icon: call-dify-workflow
     helpManual: ''
     inputList:
       - key: astron_workflow
-        title: 星辰Agent流程配置
+        title: 罗文Agent流程配置
         tip: ''
     outputList:
       - key: astron_agent_result
-        title: 星辰Agent返回值
+        title: 罗文Agent返回值
         subTitle: AI生成
         tip: ''
   ChatAI.single_turn_chat:
