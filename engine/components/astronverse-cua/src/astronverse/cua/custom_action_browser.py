@@ -1,9 +1,10 @@
 """
 Browser Use Agent - 使用视觉大模型操作浏览器
 实现完整的自动化流程：用户指令 → 浏览器快照 → 模型分析 → 执行操作 → 循环直到任务完成
-支持两种模式：
+支持三种模式：
 1. CDP 模式：通过 Chrome DevTools Protocol 直接与浏览器通信，无需插件
-2. 插件模式：通过浏览器插件通信（需要安装插件）
+2. MCP 模式：使用 Playwright 浏览器自动化工具，提供更稳定的控制
+3. 插件模式：通过浏览器插件通信（需要安装插件）
 """
 
 import base64
@@ -23,6 +24,7 @@ from astronverse.browser import CommonForBrowserType
 from astronverse.browser.browser_software import BrowserSoftware
 from astronverse.browser.browser import Browser
 from astronverse.cua.cdp_browser import CDPBrowserClient
+from astronverse.cua.mcp_browser import MCPBrowserClient
 
 # 浏览器 Web 任务场景的提示词模板（使用快照代替截图）
 BROWSER_USE_PROMPT = """You are a Web Browser agent. You are given a task and your action history, with webpage snapshot (DOM structure and element positions). You need to perform the next action to complete the task.
@@ -159,6 +161,149 @@ Analyze context (page snapshot and action history), then:
 {instruction}
 """
 
+# MCP 模式专用提示词 - 针对 Playwright 优化的控制命令集
+MCP_BROWSER_PROMPT = """You are a Web Browser automation agent powered by Playwright. You control a real browser to complete tasks.
+
+# Workflow
+1. Analyze the current page state (URL, title, elements, text content)
+2. Determine the next logical action to progress toward the goal
+3. Return a single action in the specified JSON format
+
+## Page Snapshot Format
+The snapshot provides:
+- **url**: Current page URL
+- **title**: Page title
+- **elements**: List of interactive elements with:
+  - elementId: Unique identifier (use this for actions)
+  - tagName: HTML tag (input, button, a, etc.)
+  - text: Visible text content
+  - bounds: Position and size {x, y, width, height}
+  - attributes: HTML attributes (id, name, type, placeholder, href, etc.)
+- **text_content**: Full page text (first 5000 chars)
+
+## Available Actions (Playwright-compatible)
+
+### Navigation Actions
+- **open_url**: Navigate to a URL
+  ```json
+  {"type": "open_url", "thought": "Open Google homepage", "param": {"url": "https://www.google.com"}}
+  ```
+
+- **back**: Browser back navigation
+  ```json
+  {"type": "back", "thought": "Go back to previous page", "param": {}}
+  ```
+
+- **forward**: Browser forward navigation
+  ```json
+  {"type": "forward", "thought": "Go forward to next page", "param": {}}
+  ```
+
+- **refresh**: Refresh current page
+  ```json
+  {"type": "refresh", "thought": "Refresh to get latest content", "param": {}}
+  ```
+
+### Interaction Actions
+- **click**: Click on an element
+  ```json
+  {"type": "click", "thought": "Click the search button", "param": {"elementId": "ele-5", "button": "left", "clicks": 1}}
+  ```
+  - elementId: Use the elementId from snapshot (e.g., "ele-5")
+  - button: "left" | "right" | "middle"
+  - clicks: 1 for single click, 2 for double click
+
+- **input**: Type text into an input field
+  ```json
+  {"type": "input", "thought": "Enter search query", "param": {"elementId": "ele-3", "value": "Playwright automation"}}
+  ```
+  - elementId: Target input element
+  - value: Text to type
+
+- **hotkey**: Press keyboard shortcuts
+  ```json
+  {"type": "hotkey", "thought": "Press Enter to submit", "param": {"value": "Enter"}}
+  {"type": "hotkey", "thought": "Select all text", "param": {"value": "Ctrl+a"}}
+  ```
+  - value: Key or key combination (Enter, Tab, Escape, Ctrl+a, Ctrl+c, Ctrl+v, etc.)
+
+- **hover**: Move mouse over an element
+  ```json
+  {"type": "hover", "thought": "Hover over dropdown menu", "param": {"elementId": "ele-8"}}
+  ```
+
+- **scroll**: Scroll page or element
+  ```json
+  {"type": "scroll", "thought": "Scroll down to see more content", "param": {"direction": "down", "distance": 500}}
+  ```
+  - direction: "up" | "down" | "left" | "right"
+  - distance: Pixels to scroll (default: 300)
+  - elementId: (Optional) Specific element to scroll
+
+- **drag**: Drag and drop between elements
+  ```json
+  {"type": "drag", "thought": "Drag item to cart", "param": {"startElementId": "ele-2", "endElementId": "ele-10"}}
+  ```
+
+### Control Actions
+- **wait**: Wait for page to load or animation
+  ```json
+  {"type": "wait", "thought": "Wait for page to fully load", "param": {"time_ms": 2000}}
+  ```
+
+- **finished**: Task completed successfully
+  ```json
+  {"type": "finished", "thought": "Search completed successfully", "param": {}}
+  ```
+
+- **error**: Task cannot be completed
+  ```json
+  {"type": "error", "thought": "Cannot find login button", "param": {"reason": "Login button not found on page"}}
+  ```
+
+## Best Practices
+
+### Element Selection
+1. **Use elementId from snapshot** - Always use the "ele-" prefixed IDs provided in the snapshot
+2. **Verify element type** - Check tagName and attributes to ensure correct element type
+3. **Handle dynamic content** - If element not found, try scrolling or waiting
+
+### Form Interaction
+1. Click input field first to focus
+2. Use "input" action to set value
+3. Use "hotkey" with "Enter" to submit
+
+### Navigation
+1. Use "open_url" for initial navigation
+2. Use "back"/"forward" for history navigation
+3. Use "refresh" when content seems stale
+
+### Waiting Strategy
+1. After click/input, wait for network idle (use wait action)
+2. Check for loading indicators in page content
+3. If page is loading, return wait action
+
+### Error Handling
+1. If target element not found, check if you need to scroll
+2. If action fails, try alternative approach
+3. Return "error" only when task is impossible to complete
+
+## Response Format
+Always return a JSON array with exactly one action object:
+```json
+[
+  {
+    "type": "action_type",
+    "thought": "Brief description of what you're doing",
+    "param": { ...action-specific parameters... }
+  }
+]
+```
+
+## Current Task
+{instruction}
+"""
+
 API_URL = "http://127.0.0.1:{}/api/rpa-ai-service/cua/chat".format(
     atomicMg.cfg().get("GATEWAY_PORT") if atomicMg.cfg().get("GATEWAY_PORT") else "13159"
 )
@@ -172,8 +317,10 @@ class CustomActionBrowser:
         max_steps: int = 20,
         temperature: float = 0.0,
         profile_name: str = "default",
-        mode: Literal["cdp", "plugin"] = "cdp",
+        mode: Literal["cdp", "mcp", "plugin"] = "cdp",
         cdp_port: int = 9222,
+        mcp_browser_type: str = "chrome",
+        mcp_headless: bool = False,
     ):
         """
         初始化Agent
@@ -182,8 +329,10 @@ class CustomActionBrowser:
             max_steps: 最大执行步数
             temperature: 模型温度参数
             profile_name: 浏览器Profile名称
-            mode: 浏览器交互模式，"cdp" 使用 Chrome DevTools Protocol，"plugin" 使用浏览器插件
+            mode: 浏览器交互模式，"cdp" 使用 Chrome DevTools Protocol，"mcp" 使用 MCP Playwright，"plugin" 使用浏览器插件
             cdp_port: CDP 调试端口，默认 9222
+            mcp_browser_type: MCP 模式浏览器类型 (chrome, edge)
+            mcp_headless: MCP 模式是否使用无头模式
         """
 
         self.max_steps = max_steps
@@ -191,6 +340,8 @@ class CustomActionBrowser:
         self.profile_name = profile_name
         self.mode = mode
         self.cdp_port = cdp_port
+        self.mcp_browser_type = mcp_browser_type
+        self.mcp_headless = mcp_headless
 
         self.log_dir = Path(tempfile.mkdtemp(prefix="browser_agent_"))
         self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -202,6 +353,7 @@ class CustomActionBrowser:
 
         self.browser_obj: Optional[Browser] = None
         self.cdp_client: Optional[CDPBrowserClient] = None
+        self.mcp_client: Optional[MCPBrowserClient] = None
 
         self.page_width = None
         self.page_height = None
@@ -214,12 +366,15 @@ class CustomActionBrowser:
         """
         初始化浏览器
         CDP 模式：连接到已启动的 Chrome 调试端口
+        MCP 模式：使用 Playwright 启动浏览器
         插件模式：使用指定的 profile 启动浏览器
         """
         print(f"[浏览器] 初始化浏览器 (模式: {self.mode})")
         try:
             if self.mode == "cdp":
                 return self._init_browser_cdp()
+            elif self.mode == "mcp":
+                return self._init_browser_mcp()
             else:
                 return self._init_browser_plugin()
         except Exception as e:
@@ -263,6 +418,23 @@ class CustomActionBrowser:
                 f'  Edge: msedge.exe --remote-debugging-port={self.cdp_port}'
             )
 
+    def _init_browser_mcp(self) -> Browser:
+        """MCP 模式初始化浏览器（使用 Playwright）"""
+        self.mcp_client = MCPBrowserClient(
+            browser_type=self.mcp_browser_type,
+            headless=self.mcp_headless,
+        )
+
+        if self.mcp_client.start_browser(url="about:blank"):
+            logger.info(f"[MCP] 浏览器已启动，当前页面: {self.mcp_client.get_url()}")
+            return None
+        else:
+            raise Exception(
+                "MCP 浏览器启动失败。请确保已安装 playwright:\n"
+                "  pip install playwright\n"
+                "  playwright install"
+            )
+
     def _init_browser_plugin(self) -> Browser:
         """插件模式初始化浏览器"""
         try:
@@ -290,6 +462,8 @@ class CustomActionBrowser:
         """
         if self.mode == "cdp":
             return self._get_page_snapshot_cdp()
+        elif self.mode == "mcp":
+            return self._get_page_snapshot_mcp()
         else:
             return self._get_page_snapshot_plugin()
 
@@ -357,6 +531,41 @@ class CustomActionBrowser:
                 }
         except Exception as e:
             logger.error(f"[错误] 获取页面快照失败: {e}")
+            return {
+                "url": "",
+                "title": "",
+                "viewport": {"width": 1920, "height": 1080},
+                "elements": [],
+                "error": str(e)
+            }
+
+    def _get_page_snapshot_mcp(self) -> dict:
+        """MCP 模式获取页面快照"""
+        if not self.mcp_client:
+            raise Exception("MCP 客户端未初始化")
+
+        try:
+            result = self.mcp_client.get_page_snapshot()
+            if isinstance(result, dict):
+                self.page_width = 1920
+                self.page_height = 1080
+                return {
+                    "url": result.get("url", ""),
+                    "title": result.get("title", ""),
+                    "viewport": {"width": 1920, "height": 1080},
+                    "elements": result.get("elements", []),
+                    "text_content": result.get("text_content", ""),
+                }
+            else:
+                return {
+                    "url": "",
+                    "title": "",
+                    "viewport": {"width": 1920, "height": 1080},
+                    "elements": [],
+                    "error": "无法获取页面快照"
+                }
+        except Exception as e:
+            logger.error(f"[错误] MCP 获取页面快照失败: {e}")
             return {
                 "url": "",
                 "title": "",
@@ -472,8 +681,12 @@ class CustomActionBrowser:
         if not self.instruction:
             self.instruction = instruction
 
-        # 构建系统提示词
-        system_prompt = BROWSER_USE_PROMPT.format(instruction=self.instruction)
+        # 根据模式选择提示词
+        if self.mode == "mcp":
+            system_prompt = MCP_BROWSER_PROMPT.format(instruction=self.instruction)
+        else:
+            system_prompt = BROWSER_USE_PROMPT.format(instruction=self.instruction)
+
         messages = [{"role": "system", "content": system_prompt}]
 
         # 添加历史会话记录，只保留最新的 max_history_rounds 轮
@@ -613,6 +826,8 @@ class CustomActionBrowser:
                         if self.mode == "cdp" and self.cdp_client:
                             self._ensure_browser_connected()
                             self.cdp_client.navigate(url)
+                        elif self.mode == "mcp" and self.mcp_client:
+                            self.mcp_client.navigate(url)
                         else:
                             BrowserSoftware.web_open(
                                 browser_obj=self.browser_obj,
@@ -624,6 +839,8 @@ class CustomActionBrowser:
                     if self.mode == "cdp" and self.cdp_client:
                         self._ensure_browser_connected()
                         self.cdp_client.go_back()
+                    elif self.mode == "mcp" and self.mcp_client:
+                        self.mcp_client.go_back()
                     else:
                         BrowserSoftware.browser_back(browser_obj=self.browser_obj)
 
@@ -631,6 +848,8 @@ class CustomActionBrowser:
                     if self.mode == "cdp" and self.cdp_client:
                         self._ensure_browser_connected()
                         self.cdp_client.go_forward()
+                    elif self.mode == "mcp" and self.mcp_client:
+                        self.mcp_client.go_forward()
                     else:
                         BrowserSoftware.browser_forward(browser_obj=self.browser_obj)
 
@@ -638,6 +857,8 @@ class CustomActionBrowser:
                     if self.mode == "cdp" and self.cdp_client:
                         self._ensure_browser_connected()
                         self.cdp_client.refresh()
+                    elif self.mode == "mcp" and self.mcp_client:
+                        self.mcp_client.refresh()
                     else:
                         BrowserSoftware.web_refresh(browser_obj=self.browser_obj)
 
@@ -675,6 +896,8 @@ class CustomActionBrowser:
             if self.mode == "cdp" and self.cdp_client:
                 self._ensure_browser_connected()
                 self.cdp_client.click_element(element_id, button, clicks)
+            elif self.mode == "mcp" and self.mcp_client:
+                self.mcp_client.click_element(element_id, button, clicks)
             else:
                 js_code = f"""
                 (function() {{
@@ -714,6 +937,8 @@ class CustomActionBrowser:
             if self.mode == "cdp" and self.cdp_client:
                 self._ensure_browser_connected()
                 self.cdp_client.input_text(element_id, value)
+            elif self.mode == "mcp" and self.mcp_client:
+                self.mcp_client.input_text(element_id, value)
             else:
                 escaped_value = value.replace("'", "\\'").replace('"', '\\"')
                 js_code = f"""
@@ -744,6 +969,8 @@ class CustomActionBrowser:
             if self.mode == "cdp" and self.cdp_client:
                 self._ensure_browser_connected()
                 self.cdp_client.drag(start_id, end_id)
+            elif self.mode == "mcp" and self.mcp_client:
+                self.mcp_client.drag(start_id, end_id)
             else:
                 js_code = f"""
                 (function() {{
@@ -786,6 +1013,8 @@ class CustomActionBrowser:
             if self.mode == "cdp" and self.cdp_client:
                 self._ensure_browser_connected()
                 self.cdp_client.hotkey(hotkey_value)
+            elif self.mode == "mcp" and self.mcp_client:
+                self.mcp_client.hotkey(hotkey_value)
             else:
                 js_code = f"""
                 (function() {{
@@ -832,6 +1061,8 @@ class CustomActionBrowser:
             if self.mode == "cdp" and self.cdp_client:
                 self._ensure_browser_connected()
                 self.cdp_client.hover(element_id)
+            elif self.mode == "mcp" and self.mcp_client:
+                self.mcp_client.hover(element_id)
             else:
                 js_code = f"""
                 (function() {{
@@ -863,6 +1094,8 @@ class CustomActionBrowser:
             if self.mode == "cdp" and self.cdp_client:
                 self._ensure_browser_connected()
                 self.cdp_client.scroll(direction, distance, element_id)
+            elif self.mode == "mcp" and self.mcp_client:
+                self.mcp_client.scroll(direction, distance, element_id)
             else:
                 if element_id:
                     js_code = f"""

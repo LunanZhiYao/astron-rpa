@@ -11,6 +11,7 @@ dependencies = [
     "openai",
     "pyperclip",
     "websocket-client",
+    "playwright",
     "astronverse-actionlib"
 ]
 

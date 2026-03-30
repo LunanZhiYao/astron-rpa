@@ -4,6 +4,7 @@ Astronverse CUA - Computer Use Agent
 """
 
 from astronverse.cua.cdp_browser import CDPBrowserClient
+from astronverse.cua.mcp_browser import MCPBrowserClient
 from astronverse.cua.custom_action_browser import CustomActionBrowser
 
-__all__ = ["CDPBrowserClient", "CustomActionBrowser"]
+__all__ = ["CDPBrowserClient", "MCPBrowserClient", "CustomActionBrowser"]
