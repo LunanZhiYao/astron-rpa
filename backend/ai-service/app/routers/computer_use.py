@@ -64,7 +64,6 @@ async def _extract_messages_from_request(request: Request) -> list[dict]:
 @router.post("/chat/stream")
 async def cua_chat_stream(request: Request):
     messages = await _extract_messages_from_request(request)
-    logger.info(messages)
     llm_params = ChatCompletionParam(
         model="QianYi10",
         stream=True,

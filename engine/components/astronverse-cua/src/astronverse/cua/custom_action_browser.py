@@ -38,99 +38,99 @@ Analyze context (page snapshot and action history), then:
   - elementId: 元素唯一标识
   - tagName: 标签名（如 input, button, a 等）
   - text: 元素文本内容
-  - bounds: 元素位置和大小 {x, y, width, height}
+  - bounds: 元素位置和大小 {{x, y, width, height}}
   - attributes: 元素属性（如 type, placeholder, href 等）
 
 ## 支持的原子动作
 每个动作包含一个 "type" 字段和对应的 "param" 参数，具体说明如下：
 
 - type: input
-  param: { "value": string, "elementId": string }
+  param: {{ "value": string, "elementId": string }}
   描述：填充内容至指定元素。
 
 - type: click
-  param: { "elementId": string, "button": left|right, "clicks": number }
+  param: {{ "elementId": string, "button": left|right, "clicks": number }}
   描述：支持单击、双击、右键点击。
 
 - type: drag
-  param: { "startElementId": string, "endElementId": string }
+  param: {{ "startElementId": string, "endElementId": string }}
   描述：从一个元素拖拽到另一个元素。
 
 - type: wait
-  param: { "time_ms": number }
+  param: {{ "time_ms": number }}
   描述：暂停指定时长(毫秒)。
 
 - type: data
-  param: { "data": boolean | string | object | array | number }
+  param: {{ "data": boolean | string | object | array | number }}
   描述：根据用户需求返回数据。
 
 - type: finished
-  param: {}
+  param: {{}}
   描述：任务完成。
 
 - type: error
-  param: { "reason": string }
+  param: {{ "reason": string }}
 
 - type: hotkey
-  param: { "value": string }
+  param: {{ "value": string }}
   描述：键盘快捷键，例如："Enter", "Ctrl+a", "Ctrl+Shift+s"。
 
 - type: hover
-  param: { "elementId": string }
+  param: {{ "elementId": string }}
   描述：鼠标悬停在指定元素上。
 
 - type: scroll
-  param: { "direction": up|down|left|right, "distance": number, "elementId": string }
+  param: {{ "direction": up|down|left|right, "distance": number, "elementId": string }}
   描述：在指定元素或页面滚动。
 
 - type: open_url
-  param: { "url": string }
+  param: {{ "url": string }}
   描述：打开指定URL地址。
 
 - type: back
-  param: {}
+  param: {{}}
   描述：浏览器后退。
 
 - type: forward
-  param: {}
+  param: {{}}
   描述：浏览器前进。
 
 - type: refresh
-  param: {}
+  param: {{}}
   描述：刷新当前页面。
 
 # Output
 ## Output Format
 ```json
 [
-    {
+    {{
         "type": string,
         "thought": string,
         "param": object
-    }
+    }}
 ]
 ```
 
 ## Output Example
 ### finished Example
-- { "type": "finished", "thought": "表单已成功提交，无需进一步操作。", "param": {} }
-- { "type": "finished", "thought": "数据提取完成，无需进一步操作。", "param": { "data": [["123", "红色"], ["456", "黑色"]] } }
+- {{ "type": "finished", "thought": "表单已成功提交，无需进一步操作。", "param": {{}} }}
+- {{ "type": "finished", "thought": "数据提取完成，无需进一步操作。", "param": {{ "data": [["123", "红色"], ["456", "黑色"]] }} }}
 
 ### error Example
-- { "type": "error", "thought": "无法继续，因为未找到提交按钮。", "param": { "reason": "未找到提交按钮" } }
+- {{ "type": "error", "thought": "无法继续，因为未找到提交按钮。", "param": {{ "reason": "未找到提交按钮" }} }}
 
 ### hotkey Example
-- { "type": "hotkey", "thought": "在搜索框中输入内容后按下回车键","param": { "value": "Enter" }}
-- { "type": "hotkey", "thought": "全选内容","param": { "value": "Ctrl+a" }}
+- {{ "type": "hotkey", "thought": "在搜索框中输入内容后按下回车键","param": {{ "value": "Enter" }} }}
+- {{ "type": "hotkey", "thought": "全选内容","param": {{ "value": "Ctrl+a" }} }}
 
 ### click Example
-- { "type": "click", "thought": "点击搜索按钮", "param": { "elementId": "search-btn-123", "button": "left", "clicks": 1 } }
+- {{ "type": "click", "thought": "点击搜索按钮", "param": {{ "elementId": "search-btn-123", "button": "left", "clicks": 1 }} }}
 
 ### input Example
-- { "type": "input", "thought": "在搜索框中输入关键词", "param": { "value": "罗文RPA", "elementId": "search-input-456" } }
+- {{ "type": "input", "thought": "在搜索框中输入关键词", "param": {{ "value": "罗文RPA", "elementId": "search-input-456" }} }}
 
 ### open_url Example
-- { "type": "open_url", "thought": "打开百度首页", "param": { "url": "https://www.baidu.com" } }
+- {{ "type": "open_url", "thought": "打开百度首页", "param": {{ "url": "https://www.baidu.com" }} }}
 
 # Notes
 ## 自动终止任务
