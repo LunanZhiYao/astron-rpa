@@ -65,11 +65,14 @@ async def _extract_messages_from_request(request: Request) -> list[dict]:
 async def cua_chat_stream(request: Request):
     messages = await _extract_messages_from_request(request)
     llm_params = ChatCompletionParam(
-        model="QianYi10",
+        model="QianYi20",
         stream=True,
-        temperature=0,
-        max_tokens=8192,
+        temperature=0.2,
+        max_tokens=128000,
         messages=messages,
+        extra_body={
+            "chat_template_kwargs": {"enable_thinking": False},
+        },
     )
 
     return await chat_completions(llm_params, CUA_KEY, CUA_ENDPOINT)
@@ -79,7 +82,7 @@ async def cua_chat_stream(request: Request):
 async def cua_chat(request: Request):
     messages = await _extract_messages_from_request(request)
     llm_params = ChatCompletionParam(
-        model="QianYi10",
+        model="QianYi20",
         stream=False,
         temperature=0.2,
         max_tokens=128000,
