@@ -87,7 +87,7 @@ async function checkUpdate() {
     <div
       class="absolute w-full bottom-0 text-center text-text-tertiary text-xs"
     >
-      {{ $t('settingCenter.about.aiServiceBy', { model: 'Spark' }) }}
+      {{ $t('settingCenter.about.aiServiceBy', { model: 'QianYi' }) }}
     </div>
   </div>
 </template>

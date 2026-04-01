@@ -128,17 +128,16 @@ ComputerUse.custom_action_browser:
     1. 支持的操作包括：点击、双击、右键、拖拽、快捷键、输入文本、滚动等
     2. Agent会自动循环执行直到任务完成或达到最大步数
     3. 所有截图会保存在指定目录，可用于调试和验证
-    4. 使用托管浏览器(Managed Browser)指定Profile方式保持会话状态
   inputList:
     - key: instruction
       title: 用户指令
       tip: 描述要执行的Web自动化任务，例如"打开百度并搜索罗文RPA"
-    - key: profile_name
-      title: 浏览器Profile名称
-      tip: 指定托管浏览器的Profile名称，用于保持会话状态
     - key: max_steps
       title: 最大执行步数
-      tip: 任务执行的最大步数限制，防止无限循环
+      tip: 任务执行的最大步数限制，防止无限循环，默认50
+    - key: max_history_rounds
+      title: 记忆上下文轮数
+      tip: 模型能记住的历史交互轮数，影响AI对任务上下文的理解能力，默认50
     - key: temperature
       title: 模型温度
       tip: 模型生成时的温度参数，控制输出的随机性，默认0

@@ -31,7 +31,7 @@ const menuData = computed(() => {
       key: 'changeMode',
       icon: 'rights',
       label: t('changeMode'),
-      hidden: () => userStore.currentTenant?.tenantType === 'personal',
+      hidden: () => true || userStore.currentTenant?.tenantType === 'personal',
     },
     {
       key: 'logout',

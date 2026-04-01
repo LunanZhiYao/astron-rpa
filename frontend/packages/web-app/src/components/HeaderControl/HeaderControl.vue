@@ -13,7 +13,6 @@ import { useUserStore } from '@/stores/useUserStore'
 import MessageTip from '../MesssageTip/Index.vue'
 
 import ControlButton from './ControlButton.vue'
-import Help from './Help.vue'
 import Updater from './Updater.vue'
 import UserInfo from './UserInfo.vue'
 
@@ -51,15 +50,13 @@ function handleToControl() {
 <template>
   <Updater />
 
-  <Help />
-
   <Tooltip v-if="props.setting" :title="$t('setting')">
     <ControlButton @click="handleOpenSetting">
       <rpa-icon name="setting" />
     </ControlButton>
   </Tooltip>
 
-  <Tooltip v-if="props.control && userStore.currentTenant?.tenantType !== 'personal' && permissionStore.can('console', 'all')" :title="$t('excellenceCenter')">
+  <Tooltip v-if="props.control && permissionStore.can('console', 'all')" :title="$t('excellenceCenter')">
     <ControlButton @click="handleToControl">
       <rpa-icon name="desktop" />
     </ControlButton>

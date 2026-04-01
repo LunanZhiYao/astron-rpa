@@ -8,6 +8,7 @@ import time
 import base64
 import subprocess
 import platform
+import os
 from typing import Any, Optional, Dict, List
 from pathlib import Path
 
@@ -58,6 +59,7 @@ class MCPBrowserClient:
         headless: bool = False,
         window_size: tuple = (1920, 1080),
         user_data_dir: Optional[str] = None,
+        download_dir: Optional[str] = None,
     ):
         """
         初始化 MCP 浏览器客户端
@@ -67,17 +69,27 @@ class MCPBrowserClient:
             headless: 是否无头模式
             window_size: 窗口大小 (width, height)
             user_data_dir: 用户数据目录
+            download_dir: 下载目录，默认为用户下载目录
         """
         self.browser_type = browser_type
         self.headless = headless
         self.window_size = window_size
         self.user_data_dir = user_data_dir
 
+        # 设置下载目录
+        if download_dir:
+            self.download_dir = Path(download_dir)
+        else:
+            # 默认使用用户下载目录
+            self.download_dir = Path.home() / "Downloads"
+        self.download_dir.mkdir(parents=True, exist_ok=True)
+
         self._playwright = None
         self._browser = None
         self._context = None
         self._page = None
         self._playwright_process = None
+        self._downloaded_files = set()  # 记录已下载的文件，防止重复点击
 
     def _find_browser_executable(self) -> Optional[str]:
         """查找浏览器可执行文件路径"""
@@ -120,6 +132,82 @@ class MCPBrowserClient:
                     logger.info("[MCP] Playwright 浏览器安装完成")
         except Exception as e:
             logger.warning(f"[MCP] 检查/安装 Playwright 浏览器时出错: {e}")
+
+    def _on_new_page(self, page):
+        """
+        处理新页面打开事件
+        当通过点击等方式打开新标签页时，自动切换到新页面
+        """
+        logger.info(f"[MCP] 检测到新标签页打开: {page.url}")
+        # 等待新页面加载完成
+        try:
+            page.wait_for_load_state("domcontentloaded", timeout=5000)
+        except Exception:
+            pass
+        # 切换到新页面
+        self._page = page
+        # 激活页面（将页面带到前台）
+        try:
+            self._page.bring_to_front()
+        except Exception:
+            pass
+        # 为新页面设置下载监听
+        self._page.on("download", self._on_download)
+        logger.info(f"[MCP] 已切换到新标签页: {page.url}")
+
+    def _on_download(self, download):
+        """
+        处理下载事件
+        当页面触发下载时自动保存到下载目录
+        """
+        try:
+            suggested_filename = download.suggested_filename
+            download_path = self.download_dir / suggested_filename
+
+            # 检查是否已经下载过（防止重复点击导致的死循环）
+            file_key = f"{suggested_filename}_{download.url}"
+            if file_key in self._downloaded_files:
+                logger.info(f"[MCP] 文件已下载过，跳过: {suggested_filename}")
+                return
+
+            logger.info(f"[MCP] 检测到下载: {suggested_filename}")
+            download.save_as(str(download_path))
+            self._downloaded_files.add(file_key)
+            logger.info(f"[MCP] 下载完成，保存到: {download_path}")
+        except Exception as e:
+            logger.error(f"[MCP] 下载处理失败: {e}")
+
+    def switch_to_latest_page(self):
+        """
+        切换到最新打开的标签页
+        用于手动触发切换到最新页面（如点击打开新标签页后）
+        """
+        if not self._context:
+            logger.debug("[MCP] switch_to_latest_page: context 为空")
+            return
+
+        pages = self._context.pages
+        logger.info(f"[MCP] 当前共有 {len(pages)} 个标签页")
+        
+        if len(pages) > 0:
+            # 打印所有页面的 URL 以便调试
+            for i, p in enumerate(pages):
+                logger.info(f"[MCP] 标签页 {i}: {p.url}")
+            
+            latest_page = pages[-1]
+            current_url = self._page.url if self._page else "None"
+            
+            if self._page != latest_page:
+                logger.info(f"[MCP] 从 '{current_url}' 切换到最新标签页: {latest_page.url}")
+                self._page = latest_page
+                # 激活页面（将页面带到前台）
+                try:
+                    self._page.bring_to_front()
+                    logger.info(f"[MCP] 已激活标签页: {self._page.url}")
+                except Exception as e:
+                    logger.warning(f"[MCP] 激活标签页失败: {e}")
+            else:
+                logger.info(f"[MCP] 已经在最新标签页: {latest_page.url}")
 
     def start_browser(self, url: str = "about:blank") -> bool:
         """
@@ -165,11 +253,18 @@ class MCPBrowserClient:
             # 创建上下文
             context_options = {
                 "viewport": {"width": self.window_size[0], "height": self.window_size[1]},
+                "accept_downloads": True,  # 允许下载
             }
             self._context = self._browser.new_context(**context_options)
 
+            # 监听新页面事件
+            self._context.on("page", self._on_new_page)
+
             # 创建页面
             self._page = self._context.new_page()
+
+            # 设置下载事件监听
+            self._page.on("download", self._on_download)
 
             # 导航到初始 URL
             if url:
@@ -227,9 +322,12 @@ class MCPBrowserClient:
         logger.info(f"[MCP] 导航到: {url}")
         self._page.goto(url, wait_until=wait_until)
 
-    def get_page_snapshot(self) -> dict:
+    def get_page_snapshot(self, auto_switch_to_latest: bool = True) -> dict:
         """
         获取页面快照（DOM结构和元素位置）
+
+        Args:
+            auto_switch_to_latest: 是否自动切换到最新打开的标签页
 
         Returns:
             页面快照字典
@@ -237,9 +335,20 @@ class MCPBrowserClient:
         if not self._page:
             raise Exception("浏览器未启动")
 
+        # 自动切换到最新标签页（如果打开了新标签页）
+        if auto_switch_to_latest:
+            self.switch_to_latest_page()
+
+        # 确保页面已加载完成
+        try:
+            self._page.wait_for_load_state("domcontentloaded", timeout=3000)
+        except Exception:
+            pass
+
         # 获取页面信息
         title = self._page.title()
         url = self._page.url
+        logger.info(f"[MCP] 获取页面快照: {url} - {title}")
 
         # 获取可交互元素
         elements = self._page.evaluate("""
@@ -295,12 +404,13 @@ class MCPBrowserClient:
             "text_content": text_content,
         }
 
-    def take_screenshot(self, full_page: bool = False) -> str:
+    def take_screenshot(self, full_page: bool = False, auto_switch_to_latest: bool = True) -> str:
         """
         截取屏幕截图
 
         Args:
             full_page: 是否截取整个页面
+            auto_switch_to_latest: 是否自动切换到最新打开的标签页
 
         Returns:
             Base64 编码的图片
@@ -308,10 +418,14 @@ class MCPBrowserClient:
         if not self._page:
             raise Exception("浏览器未启动")
 
+        # 自动切换到最新标签页（如果打开了新标签页）
+        if auto_switch_to_latest:
+            self.switch_to_latest_page()
+
         screenshot_bytes = self._page.screenshot(full_page=full_page)
         return base64.b64encode(screenshot_bytes).decode("utf-8")
 
-    def click(self, x: int, y: int, button: str = "left", clicks: int = 1):
+    def click(self, x: int, y: int, button: str = "left", clicks: int = 1, auto_switch_to_new_tab: bool = False):
         """
         在指定坐标点击
 
@@ -320,9 +434,13 @@ class MCPBrowserClient:
             y: Y 坐标
             button: 鼠标按钮 (left, right, middle)
             clicks: 点击次数
+            auto_switch_to_new_tab: 点击后是否自动切换到新标签页（如果打开了新标签页）
         """
         if not self._page:
             raise Exception("浏览器未启动")
+
+        # 记录点击前的标签页数量
+        pages_before = len(self._context.pages) if self._context else 0
 
         button_map = {
             "left": "left",
@@ -336,6 +454,15 @@ class MCPBrowserClient:
             self._page.mouse.click(x, y, button=playwright_button)
             if clicks > 1:
                 time.sleep(0.1)
+
+        # 点击后检查是否有新标签页打开
+        if auto_switch_to_new_tab and self._context:
+            # 等待一小段时间让新标签页打开
+            time.sleep(0.5)
+            pages_after = len(self._context.pages)
+            if pages_after > pages_before:
+                logger.info(f"[MCP] 检测到新标签页打开 ({pages_before} -> {pages_after})")
+                self.switch_to_latest_page()
 
     def _find_element_by_id(self, element_id: str) -> Optional[dict]:
         """
@@ -398,7 +525,73 @@ class MCPBrowserClient:
 
         return result if result and result.get("found") else None
 
-    def click_element(self, element_id: str, button: str = "left", clicks: int = 1):
+    def _is_download_link(self, element_id: str) -> bool:
+        """
+        检查元素是否是下载链接
+        
+        Args:
+            element_id: 元素ID
+            
+        Returns:
+            是否是下载链接
+        """
+        if not self._page:
+            return False
+            
+        result = self._page.evaluate(f"""
+        () => {{
+            let element = null;
+            const elementId = '{element_id}';
+
+            // 1. 尝试通过 ele- 索引查找
+            if (elementId.startsWith('ele-')) {{
+                const index = parseInt(elementId.replace('ele-', ''));
+                if (!isNaN(index)) {{
+                    const interactiveSelectors = 'a, button, input, textarea, select, [onclick], [role="button"], [role="link"], [role="textbox"]';
+                    const elements = document.querySelectorAll(interactiveSelectors);
+                    if (index >= 0 && index < elements.length) {{
+                        element = elements[index];
+                    }}
+                }}
+            }}
+
+            // 2. 尝试通过 id 直接查找
+            if (!element && !elementId.startsWith('ele-')) {{
+                element = document.getElementById(elementId);
+            }}
+
+            // 3. 尝试通过 name 属性查找
+            if (!element && !elementId.startsWith('ele-')) {{
+                element = document.querySelector('[name="' + elementId + '"]');
+            }}
+
+            // 4. 尝试作为 CSS 选择器查找
+            if (!element && !elementId.startsWith('ele-')) {{
+                try {{
+                    element = document.querySelector(elementId);
+                }} catch (e) {{}}
+            }}
+
+            if (element) {{
+                // 检查是否是下载链接
+                const href = element.href || element.getAttribute('href') || '';
+                const download = element.getAttribute('download');
+                const isDownloadLink = download !== null || 
+                    href.match(/\\.(pdf|zip|rar|7z|tar|gz|bz2|exe|msi|dmg|pkg|deb|rpm|apk|ipa|doc|docx|xls|xlsx|ppt|pptx|txt|csv|json|xml|mp3|mp4|avi|mov|wmv|flv|jpg|jpeg|png|gif|bmp|svg|webp|ico|woff|woff2|ttf|otf|eot)$/i);
+                
+                return {{
+                    isDownload: isDownloadLink,
+                    href: href,
+                    downloadAttr: download
+                }};
+            }}
+            return {{ isDownload: false, href: '', downloadAttr: null }};
+        }}
+        """)
+        
+        return result.get('isDownload', False) if result else False
+
+    def click_element(self, element_id: str, button: str = "left", clicks: int = 1, auto_switch_to_new_tab: bool = True):
         """
         点击指定元素
 
@@ -406,12 +599,146 @@ class MCPBrowserClient:
             element_id: 元素ID
             button: 鼠标按钮
             clicks: 点击次数
+            auto_switch_to_new_tab: 点击后是否自动切换到新标签页（如果打开了新标签页）
         """
-        result = self._find_element_by_id(element_id)
-        if result:
-            self.click(result["x"], result["y"], button, clicks)
-        else:
-            logger.warning(f"[MCP] 未找到元素: {element_id}")
+        if not self._page:
+            raise Exception("浏览器未启动")
+
+        # 记录点击前的标签页数量
+        pages_before = len(self._context.pages) if self._context else 0
+
+        # 检查是否是下载链接
+        is_download = self._is_download_link(element_id)
+        
+        if is_download:
+            logger.info(f"[MCP] 检测到下载链接，使用下载模式点击: {element_id}")
+            try:
+                # 使用 expect_download 等待下载完成
+                with self._page.expect_download(timeout=30000) as download_info:
+                    # 执行点击
+                    self._page.evaluate(f"""
+                    () => {{
+                        let element = null;
+                        const elementId = '{element_id}';
+
+                        if (elementId.startsWith('ele-')) {{
+                            const index = parseInt(elementId.replace('ele-', ''));
+                            if (!isNaN(index)) {{
+                                const interactiveSelectors = 'a, button, input, textarea, select, [onclick], [role="button"], [role="link"], [role="textbox"]';
+                                const elements = document.querySelectorAll(interactiveSelectors);
+                                if (index >= 0 && index < elements.length) {{
+                                    element = elements[index];
+                                }}
+                            }}
+                        }}
+
+                        if (!element && !elementId.startsWith('ele-')) {{
+                            element = document.getElementById(elementId);
+                        }}
+
+                        if (!element && !elementId.startsWith('ele-')) {{
+                            element = document.querySelector('[name="' + elementId + '"]');
+                        }}
+
+                        if (!element && !elementId.startsWith('ele-')) {{
+                            try {{
+                                element = document.querySelector(elementId);
+                            }} catch (e) {{}}
+                        }}
+
+                        if (element) {{
+                            element.scrollIntoView({{ behavior: 'instant', block: 'center' }});
+                            element.click();
+                            return true;
+                        }}
+                        return false;
+                    }}
+                    """)
+                
+                # 等待下载完成
+                download = download_info.value
+                suggested_filename = download.suggested_filename
+                download_path = self.download_dir / suggested_filename
+                
+                # 检查是否已经下载过
+                file_key = f"{suggested_filename}_{download.url}"
+                if file_key in self._downloaded_files:
+                    logger.info(f"[MCP] 文件已下载过，跳过: {suggested_filename}")
+                    download.cancel()
+                    return
+                
+                download.save_as(str(download_path))
+                self._downloaded_files.add(file_key)
+                logger.info(f"[MCP] 下载完成，保存到: {download_path}")
+                return
+                
+            except Exception as e:
+                logger.warning(f"[MCP] 下载模式点击失败，回退到普通点击: {e}")
+                # 回退到普通点击模式
+
+        # 使用 Playwright 的元素点击，避免下拉提示遮挡问题
+        clicked = self._page.evaluate(f"""
+        () => {{
+            let element = null;
+            const elementId = '{element_id}';
+
+            // 1. 尝试通过 ele- 索引查找
+            if (elementId.startsWith('ele-')) {{
+                const index = parseInt(elementId.replace('ele-', ''));
+                if (!isNaN(index)) {{
+                    const interactiveSelectors = 'a, button, input, textarea, select, [onclick], [role="button"], [role="link"], [role="textbox"]';
+                    const elements = document.querySelectorAll(interactiveSelectors);
+                    if (index >= 0 && index < elements.length) {{
+                        element = elements[index];
+                    }}
+                }}
+            }}
+
+            // 2. 尝试通过 id 直接查找
+            if (!element && !elementId.startsWith('ele-')) {{
+                element = document.getElementById(elementId);
+            }}
+
+            // 3. 尝试通过 name 属性查找
+            if (!element && !elementId.startsWith('ele-')) {{
+                element = document.querySelector('[name="' + elementId + '"]');
+            }}
+
+            // 4. 尝试作为 CSS 选择器查找
+            if (!element && !elementId.startsWith('ele-')) {{
+                try {{
+                    element = document.querySelector(elementId);
+                }} catch (e) {{}}
+            }}
+
+            if (element) {{
+                // 先关闭可能的下拉提示（按 Escape）
+                document.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Escape', bubbles: true }}));
+                document.dispatchEvent(new KeyboardEvent('keyup', {{ key: 'Escape', bubbles: true }}));
+                
+                // 滚动到元素可见
+                element.scrollIntoView({{ behavior: 'instant', block: 'center' }});
+                
+                // 执行点击
+                element.click();
+                return true;
+            }}
+            return false;
+        }}
+        """)
+
+        if not clicked:
+            logger.warning(f"[MCP] 未找到元素或点击失败: {element_id}")
+            return
+
+        # 点击后检查是否有新标签页打开
+        if auto_switch_to_new_tab and self._context:
+            # 等待一小段时间让新标签页打开
+            time.sleep(0.5)
+            pages_after = len(self._context.pages)
+            if pages_after > pages_before:
+                logger.info(f"[MCP] 检测到新标签页打开 ({pages_before} -> {pages_after})")
+                self.switch_to_latest_page()
 
     def input_text(self, element_id: str, text: str):
         """
@@ -442,7 +769,8 @@ class MCPBrowserClient:
             if (elementId.startsWith('ele-')) {{
                 const index = parseInt(elementId.replace('ele-', ''));
                 if (!isNaN(index)) {{
-                    const elements = document.querySelectorAll('input, textarea');
+                    const interactiveSelectors = 'a, button, input, textarea, select, [onclick], [role="button"], [role="link"], [role="textbox"]';
+                    const elements = document.querySelectorAll(interactiveSelectors);
                     if (index >= 0 && index < elements.length) {{
                         element = elements[index];
                     }}

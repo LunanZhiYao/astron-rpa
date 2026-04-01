@@ -290,7 +290,7 @@ onBeforeUnmount(() => clearAllData())
           <div class="flex items-center gap-[3px] text-text-tertiary">
             <span>{{ t('multiChat.contentBy') }}</span>
             <img width="16" height="16" src="@/assets/img/xinghuo.png" alt="xinghuo">
-            <span>{{ t('multiChat.generatedBy', { model: t('sparkDesk') }) }}</span>
+            <span>{{ t('multiChat.generatedBy', { model: t('qianYi') }) }}</span>
           </div>
         </div>
         <div v-if="chatDataList?.length > 0" class="chat-list">

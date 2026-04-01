@@ -15,6 +15,7 @@ import pyautogui
 import pyperclip
 import requests
 from astronverse.actionlib.atomic import atomicMg
+from astronverse.actionlib import AtomicFormTypeMeta, AtomicFormType
 from astronverse.baseline.logger.logger import logger
 from astronverse.cua.action_parser import (
     parse_action_to_structure_output,
@@ -639,9 +640,13 @@ class ComputerUse:
     @atomicMg.atomic(
         "ComputerUse",
         inputList=[
-            atomicMg.param("instruction", types="Str"),
-            atomicMg.param("profile_name", types="Str", required=False),
+            atomicMg.param(
+                "instruction",
+                types="Str",
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_PYTHON_TEXTAREAMODAL_VARIABLE.value)
+            ),
             atomicMg.param("max_steps", types="Int", required=False),
+            atomicMg.param("max_history_rounds", types="Int", required=False),
             atomicMg.param("temperature", types="Float", required=False),
         ],
         outputList=[
@@ -650,8 +655,8 @@ class ComputerUse:
     )
     def custom_action_browser(
         instruction: str,
-        profile_name: str = "default",
-        max_steps: int = 20,
+        max_steps: int = 50,
+        max_history_rounds: int = 50,
         temperature: float = 0.0,
     ):
         """
@@ -659,8 +664,8 @@ class ComputerUse:
 
         Args:
             instruction: 用户指令
-            profile_name: 浏览器Profile名称
             max_steps: 最大执行步数
+            max_history_rounds: 模型记忆上下文轮数，控制AI能记住多少轮历史交互
             temperature: 模型温度参数
 
         Returns:
@@ -671,8 +676,8 @@ class ComputerUse:
 
         agent = CustomActionBrowser(
             max_steps=max_steps,
+            max_history_rounds=max_history_rounds,
             temperature=temperature,
-            profile_name=profile_name,
         )
         result = agent.run(instruction)
 

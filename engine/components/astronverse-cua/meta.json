@@ -161,7 +161,7 @@
       {
         "types": "Str",
         "formType": {
-          "type": "INPUT_VARIABLE_PYTHON"
+          "type": "INPUT_PYTHON_TEXTAREAMODAL_VARIABLE"
         },
         "key": "instruction",
         "title": "用户指令",
@@ -177,15 +177,15 @@
         "required": true
       },
       {
-        "types": "Str",
+        "types": "Int",
         "formType": {
           "type": "INPUT_VARIABLE_PYTHON"
         },
-        "key": "profile_name",
-        "title": "浏览器Profile名称",
-        "name": "profile_name",
-        "tip": "指定托管浏览器的Profile名称，用于保持会话状态",
-        "default": "default",
+        "key": "max_steps",
+        "title": "最大执行步数",
+        "name": "max_steps",
+        "tip": "任务执行的最大步数限制，防止无限循环",
+        "default": 50,
         "value": [
           {
             "type": "str",
@@ -199,11 +199,11 @@
         "formType": {
           "type": "INPUT_VARIABLE_PYTHON"
         },
-        "key": "max_steps",
-        "title": "最大执行步数",
-        "name": "max_steps",
-        "tip": "任务执行的最大步数限制，防止无限循环",
-        "default": 20,
+        "key": "max_history_rounds",
+        "title": "记忆上下文轮数",
+        "name": "max_history_rounds",
+        "tip": "模型能记住的历史交互轮数，影响AI对任务上下文的理解能力",
+        "default": 50,
         "value": [
           {
             "type": "str",
