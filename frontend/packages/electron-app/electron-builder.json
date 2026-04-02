@@ -1,5 +1,5 @@
 {
-  "appId": "lunanrpa",
+  "appId": "astron-rpa",
   "productName": "罗文RPA",
   "artifactName": "罗文RPA-${version}-${arch}.${ext}",
   "electronLanguages": [
