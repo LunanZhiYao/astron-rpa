@@ -1,6 +1,6 @@
 {
-  "appId": "astron-rpa",
-  "productName": "astron-rpa",
+  "appId": "lunanrpa",
+  "productName": "罗文RPA",
   "artifactName": "罗文RPA-${version}-${arch}.${ext}",
   "electronLanguages": [
     "zh-CN",
@@ -22,7 +22,7 @@
   "win": {
     "target": "nsis",
     "icon": "../../public/icons/icon.ico",
-    "publisherName": "astron-rpa",
+    "publisherName": "罗文RPA",
     "verifyUpdateCodeSignature": false,
     "publish": {
       "provider": "generic",

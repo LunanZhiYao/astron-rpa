@@ -1,7 +1,7 @@
 {
-  "name": "astron-rpa",
+  "name": "lunanrpa",
   "version": "1.1.8",
-  "homepage": "https://www.iflyrpa.com",
+  "homepage": "https://www.lunan.com.cn",
   "main": "./out/main/index.js",
   "scripts": {
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",

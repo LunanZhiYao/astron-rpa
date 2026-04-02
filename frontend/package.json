@@ -1,5 +1,5 @@
 {
-  "name": "iflyrpa",
+  "name": "lunanrpa",
   "version": "1.0.1",
   "private": true,
   "type": "module",
@@ -16,9 +16,9 @@
     "set-env:saas": "pnpm --filter @rpa/web-app run set-env saas",
     "set-env:enterprise": "pnpm --filter @rpa/web-app run set-env enterprise",
     "dev:web": "pnpm --filter @rpa/web-app run dev",
-    "dev:desktop": "pnpm --filter astron-rpa run dev",
+    "dev:desktop": "pnpm --filter lunanrpa run dev",
     "build:web": "pnpm --filter @rpa/web-app run build",
-    "build:desktop": "pnpm --filter astron-rpa run build:win",
+    "build:desktop": "pnpm --filter lunanrpa run build:win",
     "i18n": "env-cmd lobe-i18n locale",
     "test": "vitest",
     "test:ui": "vitest --ui",

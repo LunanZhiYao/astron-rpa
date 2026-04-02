@@ -90,4 +90,6 @@ astronverse-word = {path = "./components/astronverse-word", editable = true}
 dev = [
   "pre-commit>=4.3.0",
   "ruff~=0.12.3",
-]
+] 
+[tool.uv.workspace] 
+members = [ "shared/astronverse-actionlib", "shared/astronverse-baseline", "shared/astronverse-browser-plugin", "shared/astronverse-locator", "shared/astronverse-websocket-client", "shared/astronverse-websocket-server", "shared/astronverse-workflowlib", "servers/astronverse-browser-bridge", "servers/astronverse-executor", "servers/astronverse-picker", "servers/astronverse-scheduler", "servers/astronverse-trigger", "servers/astronverse-vision-picker", "components/astronverse-ai", "components/astronverse-browser", "components/astronverse-cua", "components/astronverse-dataprocess", "components/astronverse-datatable", "components/astronverse-dialog", "components/astronverse-email", "components/astronverse-encrypt", "components/astronverse-enterprise", "components/astronverse-excel", "components/astronverse-input", "components/astronverse-network", "components/astronverse-openapi", "components/astronverse-pdf", "components/astronverse-report", "components/astronverse-script", "components/astronverse-smart", "components/astronverse-software", "components/astronverse-system", "components/astronverse-verifycode", "components/astronverse-vision", "components/astronverse-window", "components/astronverse-winelement", "components/astronverse-word"] 

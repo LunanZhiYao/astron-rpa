@@ -319,12 +319,55 @@ export async function startBackend() {
   sendToRender('正在解压Python包', preStep)
 
   // 解压所有文件
-  await Promise.allSettled(needExtractFiles.map(file => extractAndCleanFile(file, (percent) => {
+  const extractResults = await Promise.allSettled(needExtractFiles.map(file => extractAndCleanFile(file, (percent) => {
     const newStep = preStep + (percent / 100 * singlePercentStep);
     sendToRender('解压中...', newStep)
   })))
 
+  // 检查解压结果，如果有失败则抛出错误
+  const failedExtracts = extractResults.filter(result => result.status === 'rejected')
+  if (failedExtracts.length > 0) {
+    const errors = failedExtracts.map((result: PromiseRejectedResult) => result.reason)
+    logger.error('解压失败:', errors)
+    throw new Error(`解压失败: ${errors.join(', ')}`)
+  }
+
   startServer()
+}
+
+/**
+ * 延迟函数
+ * @param ms - 延迟毫秒数
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * 带重试的重命名操作
+ * @param oldPath - 原路径
+ * @param newPath - 新路径
+ * @param maxRetries - 最大重试次数
+ * @param retryDelay - 重试间隔毫秒
+ */
+async function renameWithRetry(oldPath: string, newPath: string, maxRetries = 10, retryDelay = 1000): Promise<void> {
+  let lastError: Error | undefined
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await fs.rename(oldPath, newPath)
+      logger.info(`重命名成功: ${oldPath} -> ${newPath}`)
+      return
+    } catch (error) {
+      lastError = error as Error
+      logger.warn(`重命名失败 (尝试 ${i + 1}/${maxRetries}): ${error}`)
+      if (i < maxRetries - 1) {
+        await delay(retryDelay)
+      }
+    }
+  }
+
+  throw new Error(`重命名失败，已重试 ${maxRetries} 次: ${lastError?.message}`)
 }
 
 /**
@@ -336,24 +379,32 @@ async function extractAndCleanFile(fileName: string, percentCallback: (percent: 
   const outputDir = join(appWorkPath, fileName.replace('.7z', ''))
   const tempOutputDir = `${outputDir}.temp`
 
+  logger.info(`开始处理文件: ${fileName}, 目标目录: ${outputDir}`)
+
   // 1. 确保临时目录/目标目录不存在
+  logger.info(`清理旧目录: ${tempOutputDir}, ${outputDir}`)
   const [error] = await to(Promise.all([
     fs.rm(tempOutputDir, { recursive: true, force: true }),
     fs.rm(outputDir, { recursive: true, force: true })
   ]))
   if (error) {
-    logger.error(`文件被占用: ${error}`)
-    return
+    logger.error(`清理旧目录失败: ${error}`)
+    throw new Error(`清理旧目录失败: ${error}`)
   }
-  logger.info("删除已解压目录")
+  logger.info("旧目录清理完成")
 
   // 2. 解压到临时目录
   logger.info(`开始解压到临时目录: ${tempOutputDir}`)
   await extract7z(archivePath, tempOutputDir, percentCallback)
+  logger.info(`解压完成: ${tempOutputDir}`)
 
-  // 3. 将临时目录重命名为目标目录
+  // 3. 等待文件句柄释放
+  logger.info('等待文件句柄释放...')
+  await delay(500)
+
+  // 4. 将临时目录重命名为目标目录（带重试机制）
   logger.info(`重命名为目标目录: ${outputDir}`)
-  await fs.rename(tempOutputDir, outputDir)
+  await renameWithRetry(tempOutputDir, outputDir)
 
   // 4. 复制 hash 文件
   await copySingleFile(`${fileName}.sha256.txt`)
