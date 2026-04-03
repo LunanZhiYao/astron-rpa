@@ -1,4 +1,10 @@
 !macro customInstall
+    ; Visual C++ 2015–2022 x64（随包 resources/VC_redist.x64.exe，Python 扩展如 greenlet/playwright 依赖）
+    IfFileExists "$INSTDIR\resources\VC_redist.x64.exe" vc_redist_run vc_redist_skip
+    vc_redist_run:
+        ExecWait '"$INSTDIR\resources\VC_redist.x64.exe" /install /quiet /norestart'
+    vc_redist_skip:
+
     ; 尝试写入 HKCR (需要管理员权限，对所有用户生效)
     ClearErrors
     WriteRegStr HKCR "astronrpa" "" "URL:astronrpa Protocol"
