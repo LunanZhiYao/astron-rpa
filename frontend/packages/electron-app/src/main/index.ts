@@ -15,6 +15,9 @@ import { getExtensionResourcePath } from './extension'
 const startTime = Date.now()
 globalThis.MainWindowLoaded = false
 
+// 用户可见名称（托盘悬浮等）；勿改 package.json 的 name，以免破坏 npm/workspace 约定
+app.setName('罗文RPA')
+
 app.commandLine.appendSwitch('ignore-certificate-errors')
 app.commandLine.appendSwitch('disable-web-security')
 app.disableHardwareAcceleration()
