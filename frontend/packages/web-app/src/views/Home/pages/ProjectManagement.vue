@@ -82,7 +82,7 @@ async function importRobot() {
     return
 
   importProjectModal.show({
-    title: t('importProject'),
+    title: t('importRPAApplication'),
     name: t('projectName'),
     onConfirm: (name: string, importData: AnyObj) => doImportProject(name, importData),
   })
@@ -243,7 +243,7 @@ function handleActionClick(key: string) {
       :title="$t('designerManage.oneClickAutomation')"
       :sub-title="$t('designerManage.freeFromRepetition')"
       :action-text="$t('designerManage.createRobot')"
-      :actions="[{ text: $t('importProject'), key: 'import' }]"
+      :actions="[{ text: $t('importRPAApplication'), key: 'import' }]"
       @action="createRobot"
       @action-click="handleActionClick"
     />
