@@ -2,6 +2,7 @@ import { NiceModal } from '@rpa/components'
 
 import _CopyModal from './CopyModal.vue'
 import _DataTableModal from './DataTableModal.vue'
+import _ImportProjectModal from './ImportProjectModal.vue'
 import _LogModal from './LogModal.vue'
 import _McpConfigModal from './McpConfigModal/index.vue'
 import _NewProjectModal from './NewProjectModal.vue'
@@ -14,8 +15,10 @@ export const LogModal = NiceModal.create(_LogModal)
 export const RenameModal = NiceModal.create(_RenameModal)
 export const CopyModal = NiceModal.create(_CopyModal)
 export const NewProjectModal = NiceModal.create(_NewProjectModal)
+export const ImportProjectModal = NiceModal.create(_ImportProjectModal)
 export const VersionManagementModal = NiceModal.create(_VersionManagementModal)
 export const TaskReferInfoModal = NiceModal.create(_TaskReferInfoModal)
 export const McpConfigModal = NiceModal.create(_McpConfigModal)
 
 export const newProjectModal = NiceModal.useModal(NewProjectModal)
+export const importProjectModal = NiceModal.useModal(ImportProjectModal)

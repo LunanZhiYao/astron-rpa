@@ -3,11 +3,21 @@ const props = defineProps<{
   title: string
   subTitle: string
   actionText?: string
+  actions?: Array<{ text: string, key: string }>
 }>()
 
 const emit = defineEmits<{
   (e: 'action'): void
+  (e: 'actionClick', key: string): void
 }>()
+
+function handleActionClick(key?: string) {
+  if (key) {
+    emit('actionClick', key)
+  } else {
+    emit('action')
+  }
+}
 </script>
 
 <template>
@@ -23,15 +33,27 @@ const emit = defineEmits<{
         {{ props.subTitle }}
       </div>
 
-      <a-button
-        v-if="actionText"
-        type="primary"
-        size="large"
-        class="banner-button"
-        @click="emit('action')"
-      >
-        {{ actionText }}
-      </a-button>
+      <div v-if="actionText || actions" class="banner-buttons flex gap-3 mt-6">
+        <a-button
+          v-if="actionText"
+          type="primary"
+          size="large"
+          class="banner-button"
+          @click="handleActionClick()"
+        >
+          {{ actionText }}
+        </a-button>
+        <a-button
+          v-for="action in actions"
+          :key="action.key"
+          type="primary"
+          size="large"
+          class="banner-button"
+          @click="handleActionClick(action.key)"
+        >
+          {{ action.text }}
+        </a-button>
+      </div>
     </div>
   </div>
 </template>
@@ -51,7 +73,6 @@ const emit = defineEmits<{
   }
 
   .banner-button {
-    margin-top: 24px;
     background: linear-gradient(270deg, #4f4bff 0%, #3f75ff);
   }
 }

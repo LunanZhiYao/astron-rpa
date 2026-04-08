@@ -9,6 +9,8 @@ import $loading from '@/utils/globalLoading'
 
 import { getTeams } from '@/api/market'
 import { checkProjectNum, delectProject, isInTask } from '@/api/project'
+import { getProcessAndCodeList, getProcess, getProcessPyCode, getGlobalVariable, getElementsAll, getPyPackageListApi } from '@/api/resource'
+import { getConfigParams } from '@/api/atom'
 import { PublishModal } from '@/components/PublishComponents'
 import { fromIcon } from '@/components/PublishComponents/utils'
 import { DesignerRobotDetailModal } from '@/components/RobotDetail'
@@ -135,6 +137,12 @@ export function useProjectOperate(
       text: 'createCopy',
       icon: h(<Icon name="create-copy" size="16px" />),
       clickFn: createCopy,
+    },
+    {
+      key: 'exportProject',
+      text: 'exportProject',
+      icon: h(<Icon name="download" size="16px" />),
+      clickFn: exportProject,
     },
     {
       key: 'publish',
@@ -303,6 +311,78 @@ export function useProjectOperate(
     }
   }
 
+  // 导出项目
+  async function exportProject(editObj: AnyObj) {
+    const { robotId, robotName } = editObj
+    try {
+      $loading.open({ msg: t('loading') })
+
+      const processModules = await getProcessAndCodeList({ robotId })
+
+      const exportData: AnyObj = {
+        robotName,
+        robotId,
+        exportTime: new Date().toISOString(),
+        processes: [] as AnyObj[],
+        modules: [] as AnyObj[],
+        globalVariables: [],
+        configParams: [],
+        elements: [],
+        cvElements: [],
+        packages: [],
+      }
+
+      for (const module of processModules) {
+        if (module.resourceCategory === 'process' && module.resourceId) {
+          const processRes = await getProcess({ robotId, processId: module.resourceId })
+          exportData.processes.push({
+            processId: module.resourceId,
+            processName: module.name,
+            processJson: processRes.data ? JSON.parse(processRes.data) : [],
+          })
+        } else if (module.resourceCategory === 'module' && module.resourceId) {
+          const moduleContent = await getProcessPyCode({ robotId, moduleId: module.resourceId })
+          exportData.modules.push({
+            moduleId: module.resourceId,
+            moduleName: module.name,
+            moduleContent: moduleContent || '',
+          })
+        }
+      }
+
+      const globalVarRes = await getGlobalVariable({ robotId })
+      exportData.globalVariables = globalVarRes.data || []
+
+      const configParamsRes = await getConfigParams({ robotId })
+      exportData.configParams = configParamsRes || []
+
+      const elementsRes = await getElementsAll({ robotId, elementType: 'common' })
+      exportData.elements = elementsRes.data || []
+
+      const cvElementsRes = await getElementsAll({ robotId, elementType: 'cv' })
+      exportData.cvElements = cvElementsRes.data || []
+
+      const packagesRes = await getPyPackageListApi({ robotId })
+      exportData.packages = packagesRes.data || []
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${robotName}_${robotId}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      message.success(t('common.exportSuccess'))
+    } catch (error) {
+      message.error(t('common.exportFailed'))
+    } finally {
+      $loading.close()
+    }
+  }
+
   return {
     currHoverId,
     createColumns,
@@ -315,5 +395,6 @@ export function useProjectOperate(
     publish,
     shareToMarket,
     handleDeleteProject,
+    exportProject,
   }
 }
