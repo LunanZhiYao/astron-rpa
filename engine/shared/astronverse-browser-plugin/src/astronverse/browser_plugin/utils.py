@@ -281,6 +281,9 @@ def get_install_signature_extension_version(preferences_path_list, extension_id)
     versions = []
     for preferences_path in preferences_path_list:
         extensions_path = preferences_path.replace("Preferences", "Extensions")
+        if not os.path.exists(extensions_path):
+            os.makedirs(extensions_path)
+            continue
         for item in os.listdir(extensions_path):
             if item == extension_id:
                 item_path = os.path.join(extensions_path, item)
