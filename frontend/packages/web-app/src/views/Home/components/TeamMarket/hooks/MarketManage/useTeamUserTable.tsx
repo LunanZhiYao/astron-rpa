@@ -1,4 +1,4 @@
-import { Button, message } from 'ant-design-vue'
+import { App, Button, message } from 'ant-design-vue'
 import { useTranslation } from 'i18next-vue'
 import { storeToRefs } from 'pinia'
 import { h, inject, reactive, ref, watch } from 'vue'
@@ -20,6 +20,7 @@ import RoleDropdown from '@/views/Home/components/TeamMarket/MarketManage/RoleDr
 const INIT_SCROLLY = window.innerHeight - 480
 
 export function useTeamUserTable() {
+  const { modal } = App.useApp()
   const { setOnlyUser } = inject('isOnlyUser') as { setOnlyUser: Fun }
   const homeTableRef = ref(null)
   const marketStore = useMarketStore()
@@ -102,7 +103,7 @@ export function useTeamUserTable() {
     }
 
     try {
-      const m = GlobalModal.confirm({
+      const m = modal.confirm({
         title: t('market.inviteMember'),
         class: 'invite-user-modal',
         icon: null,

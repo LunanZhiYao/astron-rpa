@@ -656,6 +656,7 @@
   "saving": "保存中",
   "saveErrorAndQuit": "保存失败, 是否继续退出，退出后将丢失当前编辑内容",
   "common": {
+    "confirm": "确定",
     "totalData": "共 {{total}} 项数据",
     "createDate": "创建日期",
     "publishStatus": "发布状态",
