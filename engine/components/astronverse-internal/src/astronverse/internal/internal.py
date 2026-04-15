@@ -5,6 +5,7 @@ from __future__ import annotations
 from json import JSONDecodeError
 
 import requests
+from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta
 from astronverse.actionlib.atomic import atomicMg
 
 
@@ -14,8 +15,18 @@ class Internal:
         "Internal",
         inputList=[
             atomicMg.param("robot_url", types="Str", required=True),
-            atomicMg.param("content", types="Str", required=True),
-            atomicMg.param("mentioned_mobile", types="Str", required=False),
+            atomicMg.param(
+                "content",
+                types="Str",
+                required=True,
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+            atomicMg.param(
+                "mentioned_mobile",
+                types="Str",
+                required=False,
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
         ],
         outputList=[
             atomicMg.param("response_text", types="Str"),

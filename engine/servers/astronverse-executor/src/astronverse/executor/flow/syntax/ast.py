@@ -561,9 +561,10 @@ class Try(Node):
         else:
             code_lines.append(CodeLine(tab_num + 1, "pass"))
 
-        # except块
+        # except块（e 与 __catch_exception__ 均指向当前异常，便于 Catch 内表达式/组件入参引用）
         if self.catch_block:
             code_lines.append(CodeLine(tab_num, "except Exception as e:"))
+            code_lines.append(CodeLine(tab_num + 1, "__catch_exception__ = e", 0))
             temp = self.catch_block.display(svc, tab_num)
             if temp:
                 code_lines.extend(temp)
