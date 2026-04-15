@@ -1,5 +1,5 @@
 atomic:
-  内部组件.wecom_group_message:
+  Internal.wecom_group_message:
     title: 企业微信群消息
     comment: >-
       向机器人地址(@{robot_url})发送文本(@{content})，@某人手机号(@{mentioned_mobile})，响应保存至(@{response_text})
@@ -20,7 +20,7 @@ atomic:
       - key: response_text
         title: 响应内容
         tip: 接口返回的文本结果
-  内部组件.yunshang_lunan_message:
+  Internal.yunshang_lunan_message:
     title: 云上鲁南消息推送
     comment: >-
       向接口(@{url})推送消息，接收方(@{receiver_id})，标题(@{title})，正文(@{text})，响应保存至(@{response_text})

@@ -11,5 +11,5 @@ def get_version():
 
 if __name__ == "__main__":
     config.set_config_file("config.yaml")
-    atomicMg.register(Internal, group_key="内部组件", version=get_version())
+    atomicMg.register(Internal, group_key="Internal", version=get_version())
     atomicMg.meta()

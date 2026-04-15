@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from json import JSONDecodeError
+
 import requests
 from astronverse.actionlib.atomic import atomicMg
 
@@ -9,7 +11,7 @@ from astronverse.actionlib.atomic import atomicMg
 class Internal:
     @staticmethod
     @atomicMg.atomic(
-        "内部组件",
+        "Internal",
         inputList=[
             atomicMg.param("robot_url", types="Str", required=True),
             atomicMg.param("content", types="Str", required=True),
@@ -25,26 +27,43 @@ class Internal:
         mentioned_mobile: str = "",
     ) -> str:
         """向企业微信群机器人发送文本，支持 @ 指定手机号。"""
+        url = (robot_url or "").strip()
+        if not url:
+            raise Exception("机器人地址不能为空，请填写企业微信群机器人的 Webhook 地址（https://...）")
+        if not (url.startswith("https://") or url.startswith("http://")):
+            raise Exception("机器人地址需为完整 URL，以 https:// 或 http:// 开头")
+
         mobiles: list[str] = []
         if mentioned_mobile and str(mentioned_mobile).strip():
             mobiles = [m.strip() for m in str(mentioned_mobile).split(",") if m.strip()]
 
-        payload = {
-            "msgtype": "text",
-            "text": {
-                "content": content,
-                "mentioned_mobile_list": mobiles,
-            },
-        }
+        text_obj: dict = {"content": content}
+        if mobiles:
+            text_obj["mentioned_mobile_list"] = mobiles
+
+        payload = {"msgtype": "text", "text": text_obj}
         try:
-            res = requests.post(robot_url, json=payload, timeout=60)
-            return res.text
+            res = requests.post(url, json=payload, timeout=60)
+            res.raise_for_status()
         except requests.RequestException as e:
             raise Exception(f"企业微信机器人请求失败: {e}") from e
 
+        body = res.text
+        try:
+            data = res.json()
+        except JSONDecodeError:
+            return body
+
+        if isinstance(data, dict) and "errcode" in data:
+            code = data.get("errcode")
+            if code != 0:
+                msg = data.get("errmsg") or data.get("msg") or body
+                raise Exception(f"企业微信接口返回错误 errcode={code}: {msg}")
+        return body
+
     @staticmethod
     @atomicMg.atomic(
-        "内部组件",
+        "Internal",
         inputList=[
             atomicMg.param("url", types="Str", required=True),
             atomicMg.param("receiver_id", types="Str", required=True),

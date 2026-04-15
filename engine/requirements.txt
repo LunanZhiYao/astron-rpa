@@ -15,6 +15,7 @@ astronverse-enterprise
 astronverse-excel
 astronverse-executor
 astronverse-input
+astronverse-internal
 astronverse-locator
 astronverse-network
 astronverse-openapi
