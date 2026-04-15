@@ -1,8 +1,8 @@
 package com.iflytek.rpa.robot.service.impl;
 
+import com.alibaba.fastjson.JSONObject;
 import com.iflytek.rpa.robot.entity.dto.YunshangLunanSendDto;
 import com.iflytek.rpa.robot.service.YunshangLunanMessageService;
-import com.iflytek.rpa.robot.util.YunshangLunanCrypto;
 import com.iflytek.rpa.robot.util.YunshangLunanSignUtil;
 import com.iflytek.rpa.utils.exception.ServiceException;
 import com.iflytek.rpa.utils.response.ErrorCodeEnum;
@@ -40,12 +40,6 @@ public class YunshangLunanMessageServiceImpl implements YunshangLunanMessageServ
     @Value("${yunshang.lunan.sender-id:}")
     private String senderId;
 
-    @Value("${yunshang.lunan.aes-key:}")
-    private String aesKey;
-
-    @Value("${yunshang.lunan.aes-iv:}")
-    private String aesIv;
-
     @Override
     public String send(YunshangLunanSendDto dto) {
         if (dto == null) {
@@ -72,9 +66,6 @@ public class YunshangLunanMessageServiceImpl implements YunshangLunanMessageServ
         if (StringUtils.isBlank(senderId)) {
             throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "未配置 yunshang.lunan.sender-id（YUNSHANG_LUNAN_SENDER_ID）");
         }
-        if (StringUtils.isBlank(aesKey) || StringUtils.isBlank(aesIv)) {
-            throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "未配置 yunshang.lunan.aes-key / aes-iv（YUNSHANG_LUNAN_AES_KEY、YUNSHANG_LUNAN_AES_IV）");
-        }
         String receiverId = StringUtils.trimToEmpty(dto.getReceiverId());
         if (StringUtils.isBlank(receiverId)) {
             throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "receiver_id 不能为空");
@@ -85,33 +76,20 @@ public class YunshangLunanMessageServiceImpl implements YunshangLunanMessageServ
         }
         String plainText = dto.getText() == null ? "" : dto.getText();
         String plainLink = dto.getLink() == null ? "" : dto.getLink();
-        String fileName = dto.getFileName() == null ? "" : dto.getFileName();
-        String fileSize = dto.getFileSize() == null ? "" : dto.getFileSize();
         if ("Text".equals(msgType) && StringUtils.isBlank(plainText)) {
             throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "文本消息时 text 不能为空");
         }
         if ("File".equals(msgType) && StringUtils.isBlank(plainLink)) {
             throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "文件消息时 link 不能为空");
         }
-        if ("File".equals(msgType) && StringUtils.isBlank(fileName)) {
-            throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "文件消息时 file_name 不能为空");
-        }
-        if ("File".equals(msgType) && StringUtils.isBlank(fileSize)) {
-            throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "文件消息时 file_size 不能为空");
-        }
-        if ("File".equals(msgType)) {
-            plainText = buildFileMetaText(fileName, fileSize);
+        if ("File".equals(msgType) && StringUtils.isBlank(plainText)) {
+            throw new ServiceException(
+                    ErrorCodeEnum.E_SERVICE.getCode(),
+                    "文件消息时 text 不能为空，且需传入 {\"fileName\":\"文件名\",\"fileSize\":\"文件大小\"}");
         }
 
-        String encText;
-        String encLink;
-        try {
-            encText = StringUtils.isBlank(plainText) ? "" : YunshangLunanCrypto.aesCbcPkcs5EncryptBase64(plainText, aesKey, aesIv);
-            encLink = StringUtils.isBlank(plainLink) ? "" : YunshangLunanCrypto.aesCbcPkcs5EncryptBase64(plainLink, aesKey, aesIv);
-        } catch (Exception e) {
-            log.error("云上鲁南 AES 加密失败", e);
-            throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "云上鲁南消息加密失败: " + e.getMessage());
-        }
+        String encText = plainText;
+        String encLink = plainLink;
 
         String nonce = Long.toString(System.currentTimeMillis() / 1000L);
         String title = "";
@@ -134,6 +112,7 @@ public class YunshangLunanMessageServiceImpl implements YunshangLunanMessageServ
 
         Map<String, Object> body = new HashMap<>();
         body.put("app_id", APP_ID);
+        body.put("app_secret", appSecret);
         body.put("method", METHOD);
         body.put("nonce", nonce);
         body.put("token", token);
@@ -157,7 +136,9 @@ public class YunshangLunanMessageServiceImpl implements YunshangLunanMessageServ
                         ErrorCodeEnum.E_SERVICE.getCode(),
                         "云上鲁南接口 HTTP 失败: " + resp.getStatusCodeValue());
             }
-            return resp.getBody() != null ? resp.getBody() : "";
+            String bodyText = resp.getBody() != null ? resp.getBody() : "";
+            validateErpBusinessResult(bodyText);
+            return bodyText;
         } catch (ServiceException e) {
             throw e;
         } catch (Exception e) {
@@ -173,12 +154,39 @@ public class YunshangLunanMessageServiceImpl implements YunshangLunanMessageServ
         return new RestTemplate(requestFactory);
     }
 
-    private static String buildFileMetaText(String fileName, String fileSize) {
-        return "{\"fileName\":\"" + jsonEscape(fileName) + "\",\"fileSize\":\"" + jsonEscape(fileSize) + "\"}";
-    }
-
-    private static String jsonEscape(String value) {
-        String text = value == null ? "" : value;
-        return text.replace("\\", "\\\\").replace("\"", "\\\"");
+    private static void validateErpBusinessResult(String bodyText) {
+        if (StringUtils.isBlank(bodyText)) {
+            throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "云上鲁南接口返回为空");
+        }
+        try {
+            JSONObject json = JSONObject.parseObject(bodyText);
+            if (json == null) {
+                throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "云上鲁南接口返回 JSON 解析失败");
+            }
+            if (!json.containsKey("status")) {
+                throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "云上鲁南接口缺少 status 字段");
+            }
+            Object statusObj = json.get("status");
+            String statusText = String.valueOf(statusObj);
+            boolean success = Boolean.TRUE.equals(statusObj)
+                    || "true".equalsIgnoreCase(statusText)
+                    || "1".equals(statusText)
+                    || "200".equals(statusText)
+                    || (statusObj instanceof Number
+                            && (((Number) statusObj).intValue() == 1 || ((Number) statusObj).intValue() == 200));
+            if (success) {
+                return;
+            }
+            String code = json.getString("code");
+            String msg = json.getString("msg");
+            throw new ServiceException(
+                    ErrorCodeEnum.E_SERVICE.getCode(),
+                    "云上鲁南接口业务失败 status=" + statusText + " code=" + (code == null ? "" : code) + " msg="
+                            + (msg == null ? "" : msg));
+        } catch (ServiceException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "云上鲁南接口返回格式异常: " + e.getMessage());
+        }
     }
 }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 from json import JSONDecodeError, dumps
+import os
 
 import requests
 from astronverse.actionlib import AtomicFormType, AtomicFormTypeMeta
@@ -60,6 +61,35 @@ def _robot_gateway_post_json(path: str, payload: dict) -> str:
     if isinstance(out, str):
         return out
     return str(out)
+
+
+def _robot_gateway_post_multipart(path: str, file_path: str, data: dict | None = None) -> dict:
+    url = _build_robot_gateway_url(path)
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise Exception("网关地址无效（请检查 project 的 gateway_port：填端口或完整 http(s):// 基址）: {!r}".format(url))
+    if not file_path or not os.path.isfile(file_path):
+        raise Exception("文件不存在，请检查文件路径: {}".format(file_path))
+    payload = data or {}
+    with open(file_path, "rb") as f:
+        files = {"file": (os.path.basename(file_path), f, "application/octet-stream")}
+        try:
+            res = requests.post(url, files=files, data=payload, timeout=120)
+        except requests.RequestException as e:
+            raise Exception(f"MinIO 上传请求失败: {e}") from e
+    if res.status_code != 200:
+        raise Exception(f"MinIO 上传请求失败: HTTP {res.status_code} {res.text}")
+    try:
+        body = res.json()
+    except JSONDecodeError as e:
+        raise Exception("MinIO 上传接口返回非 JSON: {}".format(res.text)) from e
+    code = body.get("code")
+    if code not in ("0000", "000000"):
+        msg = body.get("message") or body.get("msg") or str(body)
+        raise Exception(f"MinIO 上传接口返回错误 code={code}: {msg}")
+    data_out = body.get("data")
+    if not isinstance(data_out, dict):
+        raise Exception("MinIO 上传接口返回 data 结构异常: {}".format(body))
+    return data_out
 
 
 class Internal:
@@ -202,3 +232,39 @@ class Internal:
             "link": str(lk),
         }
         return _robot_gateway_post_json("/api/robot/yunshang-lunan/send-message", payload)
+
+    @staticmethod
+    @atomicMg.atomic(
+        "Internal",
+        inputList=[
+            atomicMg.param(
+                "file_path",
+                types="Str",
+                required=True,
+                formType=AtomicFormTypeMeta(
+                    type=AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value, params={"filters": [], "file_type": "file"}
+                ),
+            ),
+            atomicMg.param(
+                "object_name",
+                types="Str",
+                required=False,
+                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_VARIABLE_PYTHON.value),
+            ),
+        ],
+        outputList=[
+            atomicMg.param("file_url", types="Str"),
+            atomicMg.param("file_name", types="Str"),
+            atomicMg.param("file_size", types="Str"),
+        ],
+    )
+    def minio_file_upload(file_path: str = "", object_name: str = "") -> dict:
+        """上传文件至 MinIO，返回文件 URL、文件名、文件大小。"""
+        data_out = _robot_gateway_post_multipart(
+            "/api/robot/minio/upload-file", file_path=file_path, data={"object_name": object_name or ""}
+        )
+        return {
+            "file_url": str(data_out.get("fileUrl", "")),
+            "file_name": str(data_out.get("fileName", "")),
+            "file_size": str(data_out.get("fileSize", "")),
+        }

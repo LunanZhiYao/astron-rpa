@@ -6,5 +6,10 @@ yunshang:
     app-secret: ${YUNSHANG_LUNAN_APP_SECRET:}
     token: ${YUNSHANG_LUNAN_TOKEN:}
     sender-id: ${YUNSHANG_LUNAN_SENDER_ID:}
-    aes-key: ${YUNSHANG_LUNAN_AES_KEY:}
-    aes-iv: ${YUNSHANG_LUNAN_AES_IV:}
+
+minio:
+  endpoint: ${LUNAN_MINIO_ENDPOINT:}
+  access-key: ${LUNAN_MINIO_ACCESS_KEY:}
+  secret-key: ${LUNAN_MINIO_SECRET_KEY:}
+  bucket: ${LUNAN_MINIO_BUCKET:test-public}
+  url-prefix: ${LUNAN_MINIO_URL_PREFIX:luowen-rpa}

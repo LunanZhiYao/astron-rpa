@@ -50,4 +50,28 @@ atomic:
       - key: response_text
         title: 响应内容
         tip: 接口返回的文本结果
+  Internal.minio_file_upload:
+    title: MinIO文件上传
+    comment: >-
+      上传文件(@{file_path})到 MinIO，返回文件地址(@{file_url})、文件名(@{file_name})、文件大小(@{file_size})
+    icon: cloud-upload
+    helpManual: >-
+      支持选择本地文件或传入流程变量中的文件路径；object_name 可选，不填则自动生成对象名。
+    inputList:
+      - key: file_path
+        title: 文件路径
+        tip: 选择要上传的文件，支持流程变量
+      - key: object_name
+        title: MinIO对象名
+        tip: 可选；例如 folder/demo.txt，不填则后端自动生成
+    outputList:
+      - key: file_url
+        title: 文件URL
+        tip: 上传成功后返回可访问地址
+      - key: file_name
+        title: 文件名
+        tip: 上传后的文件名
+      - key: file_size
+        title: 文件大小
+        tip: 上传文件大小（字节）
 options: {}
