@@ -155,6 +155,26 @@ export async function getComponentManageList(robotId: string) {
   return res.data
 }
 
+/** 编辑态：机器人引用的扩展组件（与副本复制 componentUseCopy 一致） */
+export async function getComponentUseList(robotId: string) {
+  const res = await http.post<{ componentId: string, version: number }[]>('/api/robot/component-robot-use/component-use', {
+    robotId,
+    mode: 'EDIT_PAGE',
+    robotVersion: 0,
+  })
+  return res.data || []
+}
+
+/** 编辑态：被屏蔽的组件 ID 列表（与副本复制 componentBlockCopy 一致） */
+export async function getBlockedComponentIds(robotId: string) {
+  const res = await http.post<string[]>('/api/robot/component-robot-block/blocked-components', {
+    robotId,
+    mode: 'EDIT_PAGE',
+    robotVersion: 0,
+  })
+  return res.data || []
+}
+
 /**
  * 安装组件
  */

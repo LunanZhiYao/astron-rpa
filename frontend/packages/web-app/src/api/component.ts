@@ -34,16 +34,28 @@ export async function codeToMeta(data: { code: string }) {
 /**
  * @description: 智能组件存储
  */
-export async function saveSmartComp(data) {
-  const res = await http.post('/api/robot/smart/save', data)
+export async function saveSmartComp(data: Record<string, unknown>) {
+  const res = await http.post<{ smartId: string }>('/api/robot/smart/save', {
+    mode: 'EDIT_PAGE',
+    robotVersion: 0,
+    ...data,
+  })
   return res.data.smartId as string
 }
 
 /**
  * @description: 智能组件读取
  */
-export async function getSmartComp(data: { robotId: string, smartId: string }) {
-  const res = await http.post<RPA.Atom>('/api/robot/smart/detail/all', data)
+export async function getSmartComp(data: { robotId: string, smartId: string, mode?: string, robotVersion?: number }) {
+  const res = await http.post<{
+    smartId: string
+    smartType: string
+    detail: { versionList?: unknown[] }
+  }>('/api/robot/smart/detail/all', {
+    mode: 'EDIT_PAGE',
+    robotVersion: 0,
+    ...data,
+  })
   return res.data
 }
 

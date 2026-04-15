@@ -7,10 +7,12 @@ import { h, ref } from 'vue'
 
 import $loading from '@/utils/globalLoading'
 
+import { getConfigParams } from '@/api/atom'
+import { getSmartComp } from '@/api/component'
 import { getTeams } from '@/api/market'
 import { checkProjectNum, delectProject, isInTask } from '@/api/project'
-import { getProcessAndCodeList, getProcess, getProcessPyCode, getGlobalVariable, getElementsAll, getPyPackageListApi } from '@/api/resource'
-import { getConfigParams } from '@/api/atom'
+import { getElementsAll, getGlobalVariable, getProcess, getProcessAndCodeList, getProcessPyCode, getPyPackageListApi } from '@/api/resource'
+import { getBlockedComponentIds, getComponentUseList } from '@/api/robot'
 import { PublishModal } from '@/components/PublishComponents'
 import { fromIcon } from '@/components/PublishComponents/utils'
 import { DesignerRobotDetailModal } from '@/components/RobotDetail'
@@ -27,6 +29,17 @@ import StatusCircle from '@/views/Home/components/StatusCircle.vue'
 import { PENDING } from '@/views/Home/components/TeamMarket/config/market'
 
 import { handleRun, useCommonOperate } from '../useCommonOperate'
+
+/** 与后端 RobotDesignServiceImpl#replaceSmartIdsWithMap 引用的 key 格式一致 */
+function collectSmartIdsFromProcessJson(processJson: unknown): Set<string> {
+  const ids = new Set<string>()
+  const raw = typeof processJson === 'string' ? processJson : JSON.stringify(processJson ?? [])
+  const re = /"key":"Smart\.run_code\.(\d+)"/g
+  for (const m of raw.matchAll(re))
+    ids.add(m[1])
+
+  return ids
+}
 
 export function useProjectOperate(
   homeTableRef: Ref,
@@ -320,6 +333,7 @@ export function useProjectOperate(
       const processModules = await getProcessAndCodeList({ robotId })
 
       const exportData: AnyObj = {
+        exportFormatVersion: 2,
         robotName,
         robotId,
         exportTime: new Date().toISOString(),
@@ -330,6 +344,9 @@ export function useProjectOperate(
         elements: [],
         cvElements: [],
         packages: [],
+        smartComponents: [] as AnyObj[],
+        componentUses: [] as { componentId: string, version: number }[],
+        blockedComponentIds: [] as string[],
       }
 
       for (const module of processModules) {
@@ -340,7 +357,8 @@ export function useProjectOperate(
             processName: module.name,
             processJson: processRes.data ? JSON.parse(processRes.data) : [],
           })
-        } else if (module.resourceCategory === 'module' && module.resourceId) {
+        }
+        else if (module.resourceCategory === 'module' && module.resourceId) {
           const moduleContent = await getProcessPyCode({ robotId, moduleId: module.resourceId })
           exportData.modules.push({
             moduleId: module.resourceId,
@@ -365,6 +383,27 @@ export function useProjectOperate(
       const packagesRes = await getPyPackageListApi({ robotId })
       exportData.packages = packagesRes.data || []
 
+      const smartIdSet = new Set<string>()
+      for (const p of exportData.processes as AnyObj[])
+        collectSmartIdsFromProcessJson(p.processJson).forEach(id => smartIdSet.add(id))
+
+      for (const sid of smartIdSet) {
+        try {
+          const vo = await getSmartComp({ robotId, smartId: sid })
+          exportData.smartComponents.push({
+            smartId: vo.smartId,
+            smartType: vo.smartType,
+            detail: vo.detail,
+          })
+        }
+        catch {
+          // 单个智能组件拉取失败时跳过，避免整包导出失败
+        }
+      }
+
+      exportData.componentUses = await getComponentUseList(robotId)
+      exportData.blockedComponentIds = await getBlockedComponentIds(robotId)
+
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -376,9 +415,11 @@ export function useProjectOperate(
       URL.revokeObjectURL(url)
 
       message.success(t('common.exportSuccess'))
-    } catch (error) {
+    }
+    catch {
       message.error(t('common.exportFailed'))
-    } finally {
+    }
+    finally {
       $loading.close()
     }
   }
