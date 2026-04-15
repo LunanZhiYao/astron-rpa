@@ -8,6 +8,7 @@ import com.iflytek.rpa.auth.sp.casdoor.mapper.CasdoorTenantMapper;
 import com.iflytek.rpa.auth.sp.casdoor.service.extend.CasdoorGroupExtendService;
 import com.iflytek.rpa.auth.sp.casdoor.service.extend.CasdoorUserExtendService;
 import com.iflytek.rpa.auth.sp.casdoor.utils.SessionUserUtils;
+import com.iflytek.rpa.auth.sp.uap.constants.UAPConstant;
 import com.iflytek.rpa.auth.utils.AppResponse;
 import com.iflytek.rpa.auth.utils.ErrorCodeEnum;
 import java.io.IOException;
@@ -433,17 +434,61 @@ public class CasdoorTenantServiceImpl implements TenantService {
 
     @Override
     public AppResponse<TenantExpirationDto> getTenantExpiration(HttpServletRequest request) {
-        // Casdoor模式下暂不支持此功能，返回默认的不限期租户信息
         TenantExpirationDto dto = new TenantExpirationDto();
-        dto.setTenantType("personal"); // 默认个人版
-        // 获取当前登录用户的租户id
         String tenantId = SessionUserUtils.getTenantOwnerFromSession(request);
         dto.setTenantId(tenantId);
-        dto.setExpirationDate(null); // 不限期
-        dto.setRemainingDays(null); // 不限期
-        dto.setIsExpired(false); // 不限期
-        dto.setShouldAlert(false); // 不限期
+        dto.setExpirationDate(null);
+        dto.setRemainingDays(null);
+        dto.setIsExpired(false);
+        dto.setShouldAlert(false);
+
+        if (tenantId == null || tenantId.trim().isEmpty()) {
+            dto.setTenantType(UAPConstant.TENANT_TYPE_PERSONAL);
+            log.debug("Casdoor getTenantExpiration: 无租户 owner，按个人版处理");
+            return AppResponse.success(dto);
+        }
+
+        try {
+            Organization organization = organizationService.getOrganization(tenantId);
+            if (organization == null) {
+                dto.setTenantType(UAPConstant.TENANT_TYPE_PERSONAL);
+                log.warn("Casdoor getTenantExpiration: 未找到组织，tenantId={}，按个人版处理", tenantId);
+                return AppResponse.success(dto);
+            }
+            Tenant commonTenant = casdoorTenantMapper.toCommonTenant(organization);
+            String tenantCode = commonTenant != null ? commonTenant.getTenantCode() : null;
+            dto.setTenantType(determineTenantTypeByCode(tenantCode));
+            log.debug(
+                    "Casdoor getTenantExpiration: tenantId={}, tenantCode={}, tenantType={}",
+                    tenantId,
+                    tenantCode,
+                    dto.getTenantType());
+        } catch (Exception e) {
+            log.error("Casdoor getTenantExpiration: 查询组织失败，tenantId={}", tenantId, e);
+            dto.setTenantType(UAPConstant.TENANT_TYPE_PERSONAL);
+        }
+
         return AppResponse.success(dto);
+    }
+
+    /**
+     * 与 UAP {@code TenantServiceImpl#determineTenantType} 一致：按租户编码前缀区分个人/专业/企业版。
+     */
+    private String determineTenantTypeByCode(String tenantCode) {
+        if (tenantCode != null && tenantCode.startsWith(UAPConstant.PERSONAL_TENANT_CODE)) {
+            return UAPConstant.TENANT_TYPE_PERSONAL;
+        }
+        if (tenantCode != null && tenantCode.startsWith(UAPConstant.PROFESSIONAL_TENANT_CODE)) {
+            return UAPConstant.TENANT_TYPE_PROFESSIONAL;
+        }
+        if (tenantCode != null && tenantCode.startsWith(UAPConstant.ENTERPRISE_PURCHASED_TENANT_CODE)) {
+            return UAPConstant.TENANT_TYPE_ENTERPRISE_PURCHASED;
+        }
+        if (tenantCode != null && tenantCode.startsWith(UAPConstant.ENTERPRISE_SUBSCRIPTION_TENANT_CODE)) {
+            return UAPConstant.TENANT_TYPE_ENTERPRISE_SUBSCRIPTION;
+        }
+        log.warn("Casdoor 未知租户编码前缀，按个人版处理，tenantCode: {}", tenantCode);
+        return UAPConstant.TENANT_TYPE_PERSONAL;
     }
 
     @Override

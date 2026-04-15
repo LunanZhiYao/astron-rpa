@@ -32,14 +32,14 @@ atomic:
         title: 接口地址
         tip: 云上鲁南接口 URL，可填写占位变量或配置参数，例如 ${YUNSHANG_LUNAN_API_URL}
       - key: receiver_id
-        title: receiver_id
-        tip: 接收方 ID
+        title: 接收方 ID
+        tip: receiver_id，接收方标识
       - key: text
-        title: text
-        tip: 消息正文
+        title: 正文
+        tip: text，消息正文
       - key: title
-        title: title
-        tip: 消息标题
+        title: 标题
+        tip: title，消息标题
       - key: nonce
         title: nonce
         tip: 请求随机串，按接口要求填写
