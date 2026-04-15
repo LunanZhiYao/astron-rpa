@@ -29,6 +29,7 @@ dependencies = [
     "astronverse-enterprise",
     "astronverse-excel ",
     "astronverse-input ",
+    "astronverse-internal",
     "astronverse-network",
     "astronverse-openapi ",
     "astronverse-pdf ",
@@ -71,6 +72,7 @@ astronverse-encrypt = {path = "./components/astronverse-encrypt", editable = tru
 astronverse-enterprise = {path = "./components/astronverse-enterprise", editable = true}
 astronverse-excel = {path = "./components/astronverse-excel", editable = true}
 astronverse-input = {path = "./components/astronverse-input", editable = true}
+astronverse-internal = {path = "./components/astronverse-internal", editable = true}
 astronverse-network = {path = "./components/astronverse-network", editable = true}
 astronverse-openapi = {path = "./components/astronverse-openapi", editable = true}
 astronverse-pdf = {path = "./components/astronverse-pdf", editable = true}

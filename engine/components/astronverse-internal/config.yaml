@@ -1,0 +1,65 @@
+atomic:
+  内部组件.wecom_group_message:
+    title: 企业微信群消息
+    comment: >-
+      向机器人地址(@{robot_url})发送文本(@{content})，@某人手机号(@{mentioned_mobile})，响应保存至(@{response_text})
+    icon: wecom-robot-message
+    helpManual: >-
+      向企业微信群机器人 Webhook 发送 text 消息；多个手机号用英文逗号分隔。
+    inputList:
+      - key: robot_url
+        title: 机器人地址
+        tip: 企业微信群机器人的 Webhook 地址
+      - key: content
+        title: 文本内容
+        tip: 消息正文
+      - key: mentioned_mobile
+        title: "@某人（手机号）"
+        tip: 需要 @ 的用户手机号，多个用英文逗号分隔，如 15563371738,13800138000
+    outputList:
+      - key: response_text
+        title: 响应内容
+        tip: 接口返回的文本结果
+  内部组件.yunshang_lunan_message:
+    title: 云上鲁南消息推送
+    comment: >-
+      向接口(@{url})推送消息，接收方(@{receiver_id})，标题(@{title})，正文(@{text})，响应保存至(@{response_text})
+    icon: cloud-lunan-message
+    helpManual: >-
+      接口 URL 请填写实际地址或使用流程变量占位；nonce、token、msg_type、sender_id、link、sign 等按对接文档填写或绑定变量。
+    inputList:
+      - key: url
+        title: 接口地址
+        tip: 云上鲁南接口 URL，可填写占位变量或配置参数，例如 ${YUNSHANG_LUNAN_API_URL}
+      - key: receiver_id
+        title: receiver_id
+        tip: 接收方 ID
+      - key: text
+        title: text
+        tip: 消息正文
+      - key: title
+        title: title
+        tip: 消息标题
+      - key: nonce
+        title: nonce
+        tip: 请求随机串，按接口要求填写
+      - key: token
+        title: token
+        tip: 鉴权 token
+      - key: msg_type
+        title: msg_type
+        tip: 消息类型，按接口要求填写
+      - key: sender_id
+        title: sender_id
+        tip: 发送方 ID
+      - key: link
+        title: link
+        tip: 链接字段，可为空
+      - key: sign
+        title: sign
+        tip: 签名，按接口要求填写
+    outputList:
+      - key: response_text
+        title: 响应内容
+        tip: 接口返回的文本结果
+options: {}
