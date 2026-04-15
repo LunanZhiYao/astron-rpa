@@ -286,9 +286,9 @@ services:
 
   robot-service:
     image: ghcr.io/iflytek/astron-rpa/robot-service:latest
-    # build:
-    #  context: ..
-    #  dockerfile: backend/robot-service/Dockerfile
+    build:
+     context: ..
+     dockerfile: backend/robot-service/Dockerfile
     container_name: rpa-opensource-robot-service
     restart: always
     env_file: *env_file

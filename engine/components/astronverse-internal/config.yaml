@@ -23,41 +23,29 @@ atomic:
   Internal.yunshang_lunan_message:
     title: 云上鲁南消息推送
     comment: >-
-      向接口(@{url})推送消息，接收方(@{receiver_id})，标题(@{title})，正文(@{text})，响应保存至(@{response_text})
+      云上鲁南消息推送，接收方(@{receiver_id})，类型(@{msg_type})，响应保存至(@{response_text})
     icon: cloud-lunan-message
     helpManual: >-
-      接口 URL 请填写实际地址或使用流程变量占位；nonce、token、msg_type、sender_id、link、sign 等按对接文档填写或绑定变量。
+      Text 消息填写正文；File 消息填写链接、文件名、文件大小，系统会将文件信息封装到 text 字段。
     inputList:
-      - key: url
-        title: 接口地址
-        tip: 云上鲁南接口 URL，可填写占位变量或配置参数，例如 ${YUNSHANG_LUNAN_API_URL}
       - key: receiver_id
-        title: 接收方 ID
-        tip: receiver_id，接收方标识
-      - key: text
-        title: 正文
-        tip: text，消息正文
-      - key: title
-        title: 标题
-        tip: title，消息标题
-      - key: nonce
-        title: nonce
-        tip: 请求随机串，按接口要求填写
-      - key: token
-        title: token
-        tip: 鉴权 token
+        title: 接收方工号
+        tip: receiver_id，接收方工号
       - key: msg_type
-        title: msg_type
-        tip: 消息类型，按接口要求填写
-      - key: sender_id
-        title: sender_id
-        tip: 发送方 ID
+        title: 消息类型
+        tip: Text 为文本消息需填写正文；File 为文件消息需填写链接并在 text 中传文件信息 JSON
+      - key: text
+        title: 消息内容
+        tip: Text 时填写正文；File 时填写 {"fileName":"file_name","fileSize":"file_size"}
       - key: link
-        title: link
-        tip: 链接字段，可为空
-      - key: sign
-        title: sign
-        tip: 签名，按接口要求填写
+        title: 附件链接
+        tip: msg_type 为 File 时填写
+      - key: file_name
+        title: 文件名
+        tip: msg_type 为 File 时填写，系统会封装进 text 的 fileName
+      - key: file_size
+        title: 文件大小
+        tip: msg_type 为 File 时填写，系统会封装进 text 的 fileSize
     outputList:
       - key: response_text
         title: 响应内容

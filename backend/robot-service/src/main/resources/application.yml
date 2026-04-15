@@ -1,0 +1,10 @@
+# 默认加载（不依赖 profile），保证 Docker / 任意 SPRING_PROFILES_ACTIVE 下环境变量均能注入
+yunshang:
+  lunan:
+    # 支持 YUNSHANG_LUNAN_API_URL 或 Spring 松散绑定的 YUNSHANG_LUNAN_URL
+    url: ${YUNSHANG_LUNAN_API_URL:${YUNSHANG_LUNAN_URL:}}
+    app-secret: ${YUNSHANG_LUNAN_APP_SECRET:}
+    token: ${YUNSHANG_LUNAN_TOKEN:}
+    sender-id: ${YUNSHANG_LUNAN_SENDER_ID:}
+    aes-key: ${YUNSHANG_LUNAN_AES_KEY:}
+    aes-iv: ${YUNSHANG_LUNAN_AES_IV:}

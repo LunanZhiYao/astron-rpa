@@ -137,9 +137,9 @@ auth:
 
 # 团队市场相关配置
 market:
-  maxCreateCount: 3 # 个人版-团队市场创建个数限制
+  maxCreateCount: 999 # 个人版-团队市场创建个数限制
   invite:
-    maxJoinCount: 10  # 邀请链接最大加入人数
+    maxJoinCount: 999  # 邀请链接最大加入人数
 
 package:
   download: https://www.iflyrpa.com/api/resource/cloud/s3/downloadDataExe
@@ -148,3 +148,5 @@ astron:
   agent:
     api:
       key: "zyzhou666!"
+
+# 云上鲁南：见 application.yml（避免仅 local 生效）
