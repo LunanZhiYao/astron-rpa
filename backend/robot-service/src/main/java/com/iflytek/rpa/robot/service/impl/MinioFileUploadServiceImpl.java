@@ -59,7 +59,7 @@ public class MinioFileUploadServiceImpl implements MinioFileUploadService {
                     .credentials(accessKey, secretKey)
                     .build();
             ensureBucket(client, bucket);
-            ensureAccessPolicy(client, bucket);
+            tryEnsureAccessPolicy(client, bucket);
             try (InputStream inputStream = file.getInputStream()) {
                 client.putObject(PutObjectArgs.builder()
                         .bucket(bucket)
@@ -144,5 +144,14 @@ public class MinioFileUploadServiceImpl implements MinioFileUploadService {
                 + "}]"
                 + "}";
         client.setBucketPolicy(SetBucketPolicyArgs.builder().bucket(bucketName).config(policy).build());
+    }
+
+    private static void tryEnsureAccessPolicy(MinioClient client, String bucketName) {
+        try {
+            ensureAccessPolicy(client, bucketName);
+        } catch (Exception e) {
+            // 部分账号仅有上传权限，无 SetBucketPolicy 权限；不应阻断上传主流程
+            log.warn("设置 MinIO bucket policy 失败，继续上传。bucket={}, error={}", bucketName, e.getMessage());
+        }
     }
 }
