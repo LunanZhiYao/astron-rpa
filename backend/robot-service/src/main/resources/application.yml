@@ -3,13 +3,10 @@ yunshang:
   lunan:
     # 支持 YUNSHANG_LUNAN_API_URL 或 Spring 松散绑定的 YUNSHANG_LUNAN_URL
     url: ${YUNSHANG_LUNAN_API_URL:${YUNSHANG_LUNAN_URL:}}
+    upload-url: ${YUNSHANG_LUNAN_UPLOAD_URL:}
+    upload-code: ${YUNSHANG_LUNAN_UPLOAD_CODE:}
     app-secret: ${YUNSHANG_LUNAN_APP_SECRET:}
     token: ${YUNSHANG_LUNAN_TOKEN:}
     sender-id: ${YUNSHANG_LUNAN_SENDER_ID:}
-
-minio:
-  endpoint: ${LUNAN_MINIO_ENDPOINT:}
-  access-key: ${LUNAN_MINIO_ACCESS_KEY:}
-  secret-key: ${LUNAN_MINIO_SECRET_KEY:}
-  bucket: ${LUNAN_MINIO_BUCKET:test-public}
-  url-prefix: ${LUNAN_MINIO_URL_PREFIX:luowen-rpa}
+    aes-key: ${YUNSHANG_LUNAN_AES_KEY:}
+    aes-iv: ${YUNSHANG_LUNAN_AES_IV:}

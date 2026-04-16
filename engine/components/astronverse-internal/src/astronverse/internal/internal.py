@@ -75,20 +75,20 @@ def _robot_gateway_post_multipart(path: str, file_path: str, data: dict | None =
         try:
             res = requests.post(url, files=files, data=payload, timeout=120)
         except requests.RequestException as e:
-            raise Exception(f"MinIO 上传请求失败: {e}") from e
+            raise Exception(f"云上鲁南文件上传请求失败: {e}") from e
     if res.status_code != 200:
-        raise Exception(f"MinIO 上传请求失败: HTTP {res.status_code} {res.text}")
+        raise Exception(f"云上鲁南文件上传请求失败: HTTP {res.status_code} {res.text}")
     try:
         body = res.json()
     except JSONDecodeError as e:
-        raise Exception("MinIO 上传接口返回非 JSON: {}".format(res.text)) from e
+        raise Exception("云上鲁南文件上传接口返回非 JSON: {}".format(res.text)) from e
     code = body.get("code")
     if code not in ("0000", "000000"):
         msg = body.get("message") or body.get("msg") or str(body)
-        raise Exception(f"MinIO 上传接口返回错误 code={code}: {msg}")
+        raise Exception(f"云上鲁南文件上传接口返回错误 code={code}: {msg}")
     data_out = body.get("data")
     if not isinstance(data_out, dict):
-        raise Exception("MinIO 上传接口返回 data 结构异常: {}".format(body))
+        raise Exception("云上鲁南文件上传接口返回 data 结构异常: {}".format(body))
     return data_out
 
 
@@ -245,12 +245,6 @@ class Internal:
                     type=AtomicFormType.INPUT_VARIABLE_PYTHON_FILE.value, params={"filters": [], "file_type": "file"}
                 ),
             ),
-            atomicMg.param(
-                "object_name",
-                types="Str",
-                required=False,
-                formType=AtomicFormTypeMeta(type=AtomicFormType.INPUT_VARIABLE_PYTHON.value),
-            ),
         ],
         outputList=[
             atomicMg.param("file_url", types="Str"),
@@ -258,11 +252,9 @@ class Internal:
             atomicMg.param("file_size", types="Str"),
         ],
     )
-    def minio_file_upload(file_path: str = "", object_name: str = "") -> dict:
-        """上传文件至 MinIO，返回文件 URL、文件名、文件大小。"""
-        data_out = _robot_gateway_post_multipart(
-            "/api/robot/minio/upload-file", file_path=file_path, data={"object_name": object_name or ""}
-        )
+    def yunshang_lunan_file_upload(file_path: str = "") -> dict:
+        """上传文件至云上鲁南，返回文件 URL、文件名、文件大小。"""
+        data_out = _robot_gateway_post_multipart("/api/robot/yunshang-lunan/upload-file", file_path=file_path, data={})
         return {
             "file_url": str(data_out.get("fileUrl", "")),
             "file_name": str(data_out.get("fileName", "")),

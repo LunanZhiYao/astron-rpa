@@ -29,6 +29,22 @@ public final class YunshangLunanCrypto {
         return Base64.getEncoder().encodeToString(encrypted);
     }
 
+    public static String aesCbcPkcs5DecryptBase64(String encryptedBase64, String keyUtf8, String ivUtf8)
+            throws Exception {
+        if (encryptedBase64 == null) {
+            return "";
+        }
+        byte[] keyBytes = normalizeKey(keyUtf8);
+        byte[] ivBytes = normalizeIv(ivUtf8);
+        SecretKeySpec keySpec = new SecretKeySpec(keyBytes, AES);
+        IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
+        Cipher cipher = Cipher.getInstance(AES_CBC_PKCS5);
+        cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+        byte[] decoded = Base64.getDecoder().decode(encryptedBase64);
+        byte[] decrypted = cipher.doFinal(decoded);
+        return new String(decrypted, StandardCharsets.UTF_8);
+    }
+
     private static byte[] normalizeKey(String keyUtf8) {
         byte[] raw = keyUtf8.getBytes(StandardCharsets.UTF_8);
         int len = raw.length;
