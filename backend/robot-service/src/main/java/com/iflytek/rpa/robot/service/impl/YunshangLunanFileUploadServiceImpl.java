@@ -100,12 +100,30 @@ public class YunshangLunanFileUploadServiceImpl implements YunshangLunanFileUplo
             if (StringUtils.isBlank(encryptedCode)) {
                 throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "云上鲁南上传返回缺少 code 字段");
             }
-            String decrypted = YunshangLunanCrypto.aesCbcPkcs5DecryptBase64(encryptedCode, aesKey, aesIv);
-            JSONObject payload = JSON.parseObject(decrypted);
-            if (payload == null) {
-                throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "云上鲁南上传 code 解密后非 JSON");
+            String link;
+            try {
+                String decrypted =
+                        YunshangLunanCrypto.aesCbcPkcs5DecryptPhpCompatible(
+                                encryptedCode, StringUtils.trim(aesKey), StringUtils.trim(aesIv));
+                JSONObject payload = JSON.parseObject(decrypted);
+                if (payload == null) {
+                    throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "云上鲁南上传 code 解密后非 JSON");
+                }
+                link = payload.getString("link");
+            } catch (Exception decryptEx) {
+                String maskedBody = StringUtils.abbreviate(bodyText, 300);
+                throw new ServiceException(
+                        ErrorCodeEnum.E_SERVICE.getCode(),
+                        "云上鲁南上传返回 code 解密失败，请核对 YUNSHANG_LUNAN_AES_KEY/IV 是否与对方一致。"
+                                + " keyLen="
+                                + StringUtils.length(StringUtils.trim(aesKey))
+                                + ", ivLen="
+                                + StringUtils.length(StringUtils.trim(aesIv))
+                                + ", response="
+                                + maskedBody
+                                + ", cause="
+                                + decryptEx.getMessage());
             }
-            String link = payload.getString("link");
             if (StringUtils.isBlank(link)) {
                 throw new ServiceException(ErrorCodeEnum.E_SERVICE.getCode(), "云上鲁南上传结果缺少 link");
             }
@@ -129,4 +147,5 @@ public class YunshangLunanFileUploadServiceImpl implements YunshangLunanFileUplo
         requestFactory.setReadTimeout(120000);
         return new RestTemplate(requestFactory);
     }
+
 }

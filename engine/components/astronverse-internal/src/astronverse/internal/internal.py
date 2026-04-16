@@ -255,8 +255,9 @@ class Internal:
     def yunshang_lunan_file_upload(file_path: str = "") -> dict:
         """上传文件至云上鲁南，返回文件 URL、文件名、文件大小。"""
         data_out = _robot_gateway_post_multipart("/api/robot/yunshang-lunan/upload-file", file_path=file_path, data={})
-        return {
-            "file_url": str(data_out.get("fileUrl", "")),
-            "file_name": str(data_out.get("fileName", "")),
-            "file_size": str(data_out.get("fileSize", "")),
-        }
+        # Atomic 多输出按顺序取返回值，返回 dict 会被按 key 迭代导致拿到键名而非实际值。
+        return (
+            str(data_out.get("fileUrl", "")),
+            str(data_out.get("fileName", "")),
+            str(data_out.get("fileSize", "")),
+        )

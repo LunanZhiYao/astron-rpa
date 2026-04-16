@@ -45,6 +45,81 @@ public final class YunshangLunanCrypto {
         return new String(decrypted, StandardCharsets.UTF_8);
     }
 
+    /**
+     * 兼容 PHP:
+     * <pre>
+     * $user_id = urlsafe_b64decode($code);
+     * openssl_decrypt($user_id, 'AES-128-CBC', $key, 0, $iv);
+     * </pre>
+     */
+    public static String aesCbcPkcs5DecryptPhpCompatible(String encryptedCode, String keyUtf8, String ivUtf8)
+            throws Exception {
+        if (encryptedCode == null) {
+            return "";
+        }
+        Exception last = null;
+        for (String candidate : buildDecryptCandidates(encryptedCode)) {
+            try {
+                return aesCbcPkcs5DecryptBase64(candidate, keyUtf8, ivUtf8);
+            } catch (Exception ex) {
+                last = ex;
+            }
+        }
+        if (last != null) {
+            throw last;
+        }
+        throw new IllegalArgumentException("empty encrypted code");
+    }
+
+    private static String[] buildDecryptCandidates(String encryptedCode) {
+        String src = encryptedCode.trim();
+        String normalizedUrlSafe = normalizeUrlSafeBase64(src);
+        String decodedAsText = tryDecodeUrlSafeToText(src);
+        String decodedAsTextNormalized =
+                decodedAsText == null ? null : normalizeStandardBase64(decodedAsText.trim());
+        return new String[] {
+            src,
+            normalizeStandardBase64(src),
+            normalizedUrlSafe,
+            decodedAsText,
+            decodedAsTextNormalized
+        };
+    }
+
+    private static String tryDecodeUrlSafeToText(String input) {
+        try {
+            byte[] decoded = Base64.getUrlDecoder().decode(padBase64(input));
+            return new String(decoded, StandardCharsets.UTF_8);
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+    private static String normalizeUrlSafeBase64(String input) {
+        String normalized = input.replace('-', '+').replace('_', '/');
+        return padBase64(normalized);
+    }
+
+    private static String normalizeStandardBase64(String input) {
+        return padBase64(input.replaceAll("\\s+", ""));
+    }
+
+    private static String padBase64(String input) {
+        if (input == null) {
+            return null;
+        }
+        String noSpace = input.replaceAll("\\s+", "");
+        int mod = noSpace.length() % 4;
+        if (mod == 0) {
+            return noSpace;
+        }
+        StringBuilder sb = new StringBuilder(noSpace);
+        for (int i = 0; i < 4 - mod; i++) {
+            sb.append('=');
+        }
+        return sb.toString();
+    }
+
     private static byte[] normalizeKey(String keyUtf8) {
         byte[] raw = keyUtf8.getBytes(StandardCharsets.UTF_8);
         int len = raw.length;
