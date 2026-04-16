@@ -1,5 +1,5 @@
-# remote_addr: http://10.0.21.180:32742/
-remote_addr: http://127.0.0.1:32742/
+remote_addr: http://10.0.21.180:32742/
+#remote_addr: http://127.0.0.1:32742/
 skip_engine_start: false
 app_auth_type: casdoor
 app_edition: saas
