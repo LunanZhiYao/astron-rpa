@@ -1,6 +1,6 @@
 {
   "name": "astron-rpa",
-  "version": "1.1.9",
+  "version": "1.1.10",
   "homepage": "https://www.lunan.com.cn",
   "main": "./out/main/index.js",
   "scripts": {

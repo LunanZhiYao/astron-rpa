@@ -6,7 +6,12 @@ import Updater from './updater'
 import Utils from './utils-manager'
 import Window from './window-manager'
 
-export const updaterManager: UpdaterManager = window.UpdaterManager ?? Updater
+const getUpdaterManager = (): UpdaterManager => window.UpdaterManager ?? Updater
+
+export const updaterManager: UpdaterManager = {
+  checkUpdate: (...args) => getUpdaterManager().checkUpdate(...args),
+  quitAndInstall: (...args) => getUpdaterManager().quitAndInstall(...args),
+}
 export const shortCutManager: ShortCutManager = window.ShortCutManager ?? ShortCut
 export const clipboardManager: ClipboardManager = window.ClipboardManager ?? ClipBoard
 // TODO: 这里的 window.UtilsManager 类型不对，先断言为 UtilsManager 类型

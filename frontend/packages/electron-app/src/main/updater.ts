@@ -10,8 +10,8 @@ import { config } from './config'
 import urlJoin from './utils';
 
 autoUpdater.logger = logger
-// 开启后，可以在开发环境调试更新
-autoUpdater.forceDevUpdateConfig = false
+// 开发环境也允许执行更新检查，便于联调更新链路
+autoUpdater.forceDevUpdateConfig = !app.isPackaged
 // 退出后不自动安装
 autoUpdater.autoInstallOnAppQuit = false
 
