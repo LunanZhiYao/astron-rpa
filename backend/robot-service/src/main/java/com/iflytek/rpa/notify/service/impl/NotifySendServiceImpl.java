@@ -307,8 +307,8 @@ public class NotifySendServiceImpl extends ServiceImpl<NotifySendMapper, NotifyS
             return AppResponse.error("已经操作，请勿重复动作");
         }
 
-        // 判断是否已经在该市场中
-        String marketId = baseMapper.getMarketIdFromAppMarketUser(userId, notifySend.getMarketId());
+        // 判断是否已经在该市场中（须带租户，与列表/成员查询条件一致）
+        String marketId = baseMapper.getMarketIdFromAppMarketUser(userId, notifySend.getMarketId(), tenantId);
         if (marketId != null) {
             baseMapper.joinTeam(notifyId);
             return AppResponse.error("已经在团队当中，无需重复加入");
@@ -319,11 +319,16 @@ public class NotifySendServiceImpl extends ServiceImpl<NotifySendMapper, NotifyS
                 return AppResponse.success(resultVo);
             }
 
+            Date now = new Date();
             AppMarketUser appMarketUser = new AppMarketUser();
             appMarketUser.setMarketId(notifySend.getMarketId());
             appMarketUser.setUserType(notifySend.getUserType());
+            appMarketUser.setTenantId(tenantId);
             appMarketUser.setCreatorId(userId);
             appMarketUser.setUpdaterId(userId);
+            appMarketUser.setCreateTime(now);
+            appMarketUser.setUpdateTime(now);
+            appMarketUser.setDeleted(0);
 
             int insert = appMarketUserDao.insert(appMarketUser);
             boolean b = baseMapper.joinTeam(notifyId);

@@ -56,8 +56,11 @@ public interface NotifySendMapper extends BaseMapper<NotifySend> {
     @Update("update notify_send set operate_result=3 where id=#{notifyId}")
     boolean joinTeam(@Param("notifyId") Long notifyId);
 
-    @Select("select market_id from app_market_user where creator_id=#{userId} and market_id=#{marketId} and deleted=0")
-    String getMarketIdFromAppMarketUser(@Param("userId") String userId, @Param("marketId") String marketId);
+    @Select(
+            "select market_id from app_market_user where creator_id=#{userId} and market_id=#{marketId} "
+                    + "and tenant_id=#{tenantId} and deleted=0")
+    String getMarketIdFromAppMarketUser(
+            @Param("userId") String userId, @Param("marketId") String marketId, @Param("tenantId") String tenantId);
 
     @Select(
             "select count(id) from notify_send where deleted=0 and user_id=#{userId} and tenant_id=#{tenantId} and operate_result=1")
