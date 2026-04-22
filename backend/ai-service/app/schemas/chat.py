@@ -2,7 +2,9 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-DEFAULT_MODEL = "maas/deepseek-v3.2"
+from app.config import get_settings
+
+DEFAULT_MODEL = get_settings().AICHAT_MODEL
 
 
 class ChatCompletionParam(BaseModel):
@@ -22,6 +24,10 @@ class ChatCompletionParam(BaseModel):
                 "content": "What is the capital of France?",
             },
         ],
+    )
+    chat_template_kwargs: Optional[dict] = Field(
+        default_factory=lambda: {"enable_thinking": False},
+        examples=[{"enable_thinking": False}],
     )
 
 

@@ -22,9 +22,11 @@ class Settings(BaseSettings):
 
     AICHAT_BASE_URL: str
     AICHAT_API_KEY: str
+    AICHAT_MODEL: str = "maas/deepseek-v3.2"
 
     CUA_BASE_URL: str
     CUA_API_KEY: str
+    CUA_MODEL: str = "QianYi10"
 
     XFYUN_APP_ID: str
     XFYUN_API_SECRET: str
