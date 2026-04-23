@@ -7,7 +7,7 @@ import { clickContextItem, disableContextMenuKeyboard, enableContextMenuKeyboard
 const contextMenuInfo = ref({ visible: false, x: 0, y: 0, atom: null })
 setContextMenu(contextMenuInfo)
 
-const contextMenuList = getContextMenuList().filter(i => i.shortcutKey || i.type === 'divider').filter(i => !i.onlyShortcutKey)
+const contextMenuList = getContextMenuList().filter(i => !i.onlyShortcutKey)
 const shortcutKeyList = getContextMenuList().filter(i => i.shortcutKey)
 function hideContextMenu() {
   toggleContextmenu({ visible: false })

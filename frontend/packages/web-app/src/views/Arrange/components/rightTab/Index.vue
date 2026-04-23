@@ -12,6 +12,7 @@ import PythonPackageManagement from '@/components/PythonPackageManagement/Index.
 import { useFlowStore } from '@/stores/useFlowStore'
 import AtomForm from '@/views/Arrange/components/atomForm/AtomForm.vue'
 import ProcessManage from '@/views/Arrange/components/process/ProcessManage.vue'
+import AIArrangePanel from '@/views/Arrange/components/rightTab/AIArrangePanel.vue'
 import CustomTabItem from '@/views/Arrange/components/rightTab/CustomTabItem.vue'
 import CustomTabs from '@/views/Arrange/components/rightTab/CustomTabs.vue'
 import VariableManage from '@/views/Arrange/components/variableManage/Index.vue'
@@ -40,6 +41,10 @@ BUS.$on('toggleAtomForm', (visible: boolean) => {
   }
 })
 
+BUS.$on('toggleAiArrangePanel', () => {
+  activeTab.value = 'ai-arrange'
+})
+
 function beforeSelectChange(tab) {
   if (tab === 'node' && !flowStore.activeAtom) {
     message.warning(i18next.t('arrange.selectAtomFirst'))
@@ -62,6 +67,9 @@ function beforeSelectChange(tab) {
     <CustomTabItem :name="$t('pythonPackageManagement')" value="python" size="620">
       <PythonPackageManagement />
     </CustomTabItem>
+    <CustomTabItem :name="$t('arrange.aiArrangeButton')" value="ai-arrange" size="620">
+      <AIArrangePanel />
+    </CustomTabItem>
   </CustomTabs>
 </template>
 
@@ -74,7 +82,8 @@ function beforeSelectChange(tab) {
   --divider-color: #ecedf4;
   --tab-bar-gap: 24px;
 
-  width: 38px;
+  width: auto;
+  flex-shrink: 0;
   overflow: visible;
   z-index: 1;
 

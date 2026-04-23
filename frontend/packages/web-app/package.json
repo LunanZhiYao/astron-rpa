@@ -13,7 +13,8 @@
     "publish": "vite build --mode=publish",
     "prepublish": "cross-env NODE_OPTIONS=--max_old_space_size=6144",
     "preview": "vite preview",
-    "lint-fix": "eslint --ext .ts,.vue,.js,.tsx src --fix"
+    "lint-fix": "eslint --ext .ts,.vue,.js,.tsx src --fix",
+    "gen:engine-atomic": "node scripts/generate-engine-atomic-ref.mjs"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",

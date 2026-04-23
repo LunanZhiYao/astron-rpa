@@ -48,7 +48,7 @@ export function draggableAddStyle() {
 }
 
 // 添加原子能力
-export async function addAtomData(key: string, preIndex?: number | number[], isDrag = false) {
+export async function addAtomData(key: string, preIndex?: number | number[], isDrag = false, openAtomForm = true) {
   const { simpleFlowUIData, activeAtom } = useFlowStore()
 
   let idx = preIndex
@@ -62,7 +62,7 @@ export async function addAtomData(key: string, preIndex?: number | number[], isD
     const atom = useProcessStore().atomicTreeDataFlat.find(atom => atom.key === key)
     atom && recordAtomUsage(atom)
   }
-  BUS.$emit('toggleAtomForm', true)
+  openAtomForm && BUS.$emit('toggleAtomForm', true)
 
   return atom
 }

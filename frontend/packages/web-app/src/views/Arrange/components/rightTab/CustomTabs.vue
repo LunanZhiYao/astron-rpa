@@ -34,14 +34,14 @@ const activeTab = computed(() => props.modelValue)
 const positionClass = computed(() => `tabs-${props.position}`)
 
 const activeStyle = computed(() => {
-  // const isVertical = ['top', 'bottom'].includes(props.position || '')
-  // const mainDimension = isVertical ? 'height' : 'width'
-  // const activeSize = tabs.value.find(item => item.value === activeTab.value)?.size ?? 0
-  // const validSize = Number.isNaN(Number(activeSize)) ? activeSize : `${Number(activeSize)}px`
+  const isVertical = ['top', 'bottom'].includes(props.position || '')
+  const mainDimension = isVertical ? 'height' : 'width'
+  const activeSize = tabs.value.find(item => item.value === activeTab.value)?.size ?? 0
+  const validSize = Number.isNaN(Number(activeSize)) ? activeSize : `${Number(activeSize)}px`
 
   return {
-    // [mainDimension]: validSize,
-    // transition: 'all 0.3s ease',
+    [mainDimension]: validSize,
+    transition: 'all 0.3s ease',
   }
 })
 

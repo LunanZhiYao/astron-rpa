@@ -36,7 +36,7 @@ class ChatPromptParam(BaseModel):
     stream: bool = Field(False, examples=[True])
     prompt_type: str = Field(
         ...,
-        examples=["translate", "code_review", "document_summary", "sql_generator", "business_analysis", "email_writer"],
+        examples=["translate", "code_review", "document_summary", "sql_generator", "business_analysis", "email_writer", "auto_arrange"],
         description="预设prompt类型",
     )
     params: Optional[dict] = Field(

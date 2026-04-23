@@ -1,8 +1,10 @@
 import { pickBy } from 'lodash-es'
+import axios from 'axios'
 
 import type { ITableResponse } from '@/types/normalTable'
 
 import http from './http'
+import { getAPIBaseURL } from './http/env'
 
 /**
  * @description: 获取执行器应用列表数据
@@ -71,6 +73,58 @@ export async function getWorkflowList() {
  */
 export function getRobotEnglishName(name: string) {
   return http.post('/api/rpa-ai-service/v1/chat/prompt', { prompt_type: 'translate', params: { name } })
+}
+
+/**
+ * 设计器：AI 自动编排
+ */
+export async function autoArrangeByAI(data: {
+  user_requirement: string
+  components_json: string
+  current_group_json?: string
+  chat_history_json?: string
+  last_plan_json?: string
+}) {
+  const res = await http.post<string>(
+    '/api/rpa-ai-service/v1/chat/prompt',
+    {
+      prompt_type: 'auto_arrange',
+      params: data,
+    },
+    {
+      // 大模型编排可能耗时较长，单独放宽超时
+      timeout: 180000,
+      toast: false,
+    },
+  )
+  return res.data
+}
+
+/**
+ * 设计器：AI 自动编排（OpenAI 对话模式，前端维护 messages）
+ */
+export async function autoArrangeByChatCompletions(data: {
+  messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }>
+  temperature?: number
+}) {
+  const res = await axios.post(
+    `${getAPIBaseURL()}/rpa-ai-service/v1/chat/completions`,
+    {
+      stream: false,
+      messages: data.messages,
+      temperature: data.temperature ?? 0.2,
+    },
+    {
+      timeout: 180000,
+      headers: {
+        'Content-Type': 'application/json;charset=UTF-8',
+      },
+    },
+  )
+
+  const responseData = res?.data || {}
+  const choices = responseData?.data?.choices || responseData?.choices || []
+  return choices?.[0]?.message?.content || ''
 }
 
 /**

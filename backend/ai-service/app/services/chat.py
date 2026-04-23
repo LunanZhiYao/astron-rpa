@@ -30,12 +30,6 @@ async def chat_completions(params: ChatCompletionParam, key: str = API_KEY, endp
         "Content-Type": "application/json",
     }
     data = params.model_dump(exclude_none=True)
-    # 兼容新格式：对外允许直接传 chat_template_kwargs，
-    # 发给上游时统一写入 extra_body.chat_template_kwargs
-    chat_template_kwargs = data.pop("chat_template_kwargs", None)
-    if chat_template_kwargs is not None:
-        extra_body = data.setdefault("extra_body", {})
-        extra_body["chat_template_kwargs"] = chat_template_kwargs
 
     try:
         for message in data["messages"]:

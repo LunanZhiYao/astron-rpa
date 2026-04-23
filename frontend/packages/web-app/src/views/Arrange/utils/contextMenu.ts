@@ -2,6 +2,7 @@ import { message } from 'ant-design-vue'
 import hotkeys from 'hotkeys-js'
 
 import i18next from '@/plugins/i18next'
+import BUS from '@/utils/eventBus'
 
 import { SCOPE } from '@/constants/shortcuts'
 import { useFlowStore } from '@/stores/useFlowStore'
@@ -10,6 +11,22 @@ import { Group, GroupEnd } from '@/views/Arrange/config/atomKeyMap'
 import type { ContextmenuInfo } from '@/views/Arrange/types/flow'
 import { findPairId, getIdx, getMultiSelectIds } from '@/views/Arrange/utils/flowUtils'
 import { setMultiSelectByClick, setSelectAll } from '@/views/Arrange/utils/selectItemByClick'
+
+function addToAiArrangeDialog(atomIds: string[]) {
+  if (!atomIds?.length)
+    return
+  const indexes = atomIds
+    .map(id => getIdx(id))
+    .filter(idx => idx >= 0)
+    .sort((a, b) => a - b)
+  if (!indexes.length)
+    return
+  const start = indexes[0] + 1
+  const end = indexes[indexes.length - 1] + 1
+  const tag = `@flow[${start}-${end}]`
+  BUS.$emit('toggleAiArrangePanel')
+  BUS.$emit('insertAiArrangeTag', tag)
+}
 
 export function getContextMenuList() {
   return [
@@ -95,6 +112,13 @@ export function getContextMenuList() {
       disableTip: i18next.t('arrange.ungroupDisabledTip'),
       clickFn: ungroup,
       shortcutKey: 'Ctrl+Shift+G',
+    },
+    {
+      key: 'addToAiArrange',
+      title: 'addToAiArrange',
+      icon: 'tools-data-pick',
+      disable: false,
+      clickFn: addToAiArrangeDialog,
     },
     {
       type: 'divider',

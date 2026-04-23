@@ -23,6 +23,8 @@ prompt_dict = {
     "smart_web_auto": "smart/web_auto_prompt.md",
     "smart_data_process": "smart/data_process_prompt.md",
     "smart_optimize_input": "smart/optimize_input_prompt.md",
+    # 设计器自动编排
+    "auto_arrange": "smart/auto_arrange_prompt.md",
 }
 
 

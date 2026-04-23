@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, inject, onMounted } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 
 type Position = 'top' | 'left' | 'right' | 'bottom'
@@ -20,6 +20,13 @@ const props = defineProps<Tab>()
 
 const context = inject<TabsContext>('tabsContext')
 const isActive = computed(() => context?.activeTab.value === props.value)
+const mountedOnce = ref(false)
+
+watch(isActive, (active) => {
+  if (active) {
+    mountedOnce.value = true
+  }
+}, { immediate: true })
 
 onMounted(() => {
   if (!context)
@@ -30,7 +37,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="isActive" class="custom-tab-panel">
+  <div v-if="mountedOnce" v-show="isActive" class="custom-tab-panel">
     <slot />
   </div>
 </template>
+
+<style lang="scss" scoped>
+.custom-tab-panel {
+  width: 100%;
+  height: 100%;
+}
+</style>
